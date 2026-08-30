@@ -1,0 +1,4 @@
+# Optional. Only needed if LLM_BACKEND=claude in .env.
+# Mirrors generic-auto's requirements-ollama.txt pattern: the swap-in backend
+# is an extra, not a default dependency.
+anthropic>=0.40.0

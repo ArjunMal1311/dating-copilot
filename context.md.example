@@ -1,0 +1,33 @@
+# Context
+
+Copy this to `context.md` and fill it in — or point `CONTEXT_MD_PATH` in your
+`.env` at an already-filled copy (e.g. `generic-lab/context.md`, if you built
+that first) so you're not maintaining the same document twice.
+
+This is read on every single judge call. It's the "who Arjun is" the bot
+uses to decide LIKE/SKIP and to write in your voice. Same file, same rules,
+as generic-lab — see that project's `context.md` for the full template if you
+want the long-form version. Short version below.
+
+---
+
+## Basics
+- **Age:**
+- **City:**
+
+## What you're looking for
+_Specific, not "something serious."_
+
+## Who you're trying to attract
+_Describe her, not a checklist of traits._
+
+## Your actual life
+_Specific things you do. This is the raw material for openers — the model
+can only reference what's here._
+
+## Your voice
+_Paste 3-4 real messages you've sent friends, uncleaned. Used alongside the
+sent-message voice bank the bot builds automatically over time._
+
+## Constraints
+_Anything off the table._
