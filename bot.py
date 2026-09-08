@@ -35,6 +35,7 @@ async def start_cmd(update: Update, context) -> None:
 
 
 def main() -> None:
+    config.require_telegram()
     config.check_context_file()
     db.init_db()
 

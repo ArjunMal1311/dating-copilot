@@ -13,9 +13,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).parent
+
+# Load this project's .env explicitly, not whatever happens to be in the
+# process's cwd — generic_mcp.py is spawned by an MCP client from its own
+# directory, not this one.
+load_dotenv(BASE_DIR / ".env")
 
 
 def _fail(msg: str) -> None:
@@ -31,19 +34,41 @@ def _require(name: str) -> str:
 
 
 # ---------- Telegram ----------
-TELEGRAM_BOT_TOKEN = _require("TELEGRAM_BOT_TOKEN")
+# Not required at import: generic_mcp.py (MCP-client integration) reuses this
+# module for the Gemini key, DB path and identity config but never touches
+# Telegram. bot.py calls require_telegram() at startup to fail loudly.
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 
-_raw_user_id = _require("TELEGRAM_ALLOWED_USER_ID")
+_raw_user_id = os.environ.get("TELEGRAM_ALLOWED_USER_ID", "").strip()
 try:
-    TELEGRAM_ALLOWED_USER_ID = int(_raw_user_id)
+    TELEGRAM_ALLOWED_USER_ID = int(_raw_user_id) if _raw_user_id else None
 except ValueError:
     _fail(f"TELEGRAM_ALLOWED_USER_ID={_raw_user_id!r} isn't a number. "
           f"Message @userinfobot on Telegram to get your numeric id.")
 
+
+def require_telegram() -> None:
+    """Fail loudly if the Telegram vars needed by bot.py are missing.
+
+    Called from bot.main(), not at import — so generic_mcp.py can import this
+    module without a bot token.
+    """
+    if not TELEGRAM_BOT_TOKEN:
+        _fail("TELEGRAM_BOT_TOKEN is not set. Copy .env.example to .env and "
+              "fill it in.")
+    if TELEGRAM_ALLOWED_USER_ID is None:
+        _fail("TELEGRAM_ALLOWED_USER_ID is not set. Message @userinfobot on "
+              "Telegram to get your numeric id.")
+
 # ---------- Judge backend ----------
+# gemini  — call the Gemini SDK directly with a single local GEMINI_API_KEY.
+# claude  — call the Anthropic SDK directly with ANTHROPIC_API_KEY.
+# gateway — POST to a running ai-gateway over HTTP; the gateway owns the key
+#           pool, rate limiting and backoff, so generic-bot holds no provider key
+#           at all. See llm/gateway.py.
 LLM_BACKEND = os.environ.get("LLM_BACKEND", "gemini").strip().lower()
-if LLM_BACKEND not in ("gemini", "claude"):
-    _fail(f"LLM_BACKEND={LLM_BACKEND!r} — must be 'gemini' or 'claude'.")
+if LLM_BACKEND not in ("gemini", "claude", "gateway"):
+    _fail(f"LLM_BACKEND={LLM_BACKEND!r} — must be 'gemini', 'claude' or 'gateway'.")
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
@@ -53,9 +78,24 @@ if LLM_BACKEND == "gemini" and not GEMINI_API_KEY:
           "https://aistudio.google.com/apikey")
 if LLM_BACKEND == "claude" and not ANTHROPIC_API_KEY:
     _fail("LLM_BACKEND=claude but ANTHROPIC_API_KEY is empty.")
+# gateway needs no local key — the gateway service holds the pool.
 
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash").strip()
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5").strip()
+
+# ---------- ai-gateway backend (LLM_BACKEND=gateway) ----------
+# Base URL of the running gateway. Trailing slash trimmed so f"{URL}/v1/generate"
+# is always well-formed.
+LLM_GATEWAY_URL = os.environ.get(
+    "LLM_GATEWAY_URL", "http://localhost:8080"
+).strip().rstrip("/")
+# Empty => let the gateway walk its own config/models.yaml priority list (kept
+# current there). Set it to pin one model (gateway then does no cross-model
+# fallback for this call).
+LLM_GATEWAY_MODEL = os.environ.get("LLM_GATEWAY_MODEL", "").strip()
+# Client-side read timeout for the judge call, seconds. The gateway's own
+# per-request deadline is ~120s; give it headroom above that.
+LLM_GATEWAY_TIMEOUT = float(os.environ.get("LLM_GATEWAY_TIMEOUT", "150"))
 
 # ---------- Identity / memory ----------
 USER_NAME = os.environ.get("USER_NAME", "the user").strip()

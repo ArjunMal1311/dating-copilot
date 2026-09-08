@@ -48,6 +48,27 @@ Want Claude instead? Set `LLM_BACKEND=claude`, add `ANTHROPIC_API_KEY`, and
 `.venv/bin/pip install -r requirements-claude.txt`. Same schema, same
 prompt, different SDK underneath — see `llm/base.py`.
 
+### Or: use a shared ai-gateway (no local key)
+
+If you run the standalone **ai-gateway** service (multi-key Gemini pool with
+rate limiting + per-key backoff), point generic-bot at it and it holds no
+provider key of its own:
+
+```
+LLM_BACKEND=gateway
+LLM_GATEWAY_URL=http://localhost:8080     # default; set if the gateway is elsewhere
+# LLM_GATEWAY_MODEL=gemini-3.5-flash      # optional — omit and the gateway picks off its own priority list
+# LLM_GATEWAY_TIMEOUT=150                 # optional client read-timeout, seconds
+```
+
+Start the gateway first (from its own checkout — `docker compose up` or
+`uvicorn app.main:app --port 8080`), then run generic-bot normally. `GEMINI_API_KEY`
+is not needed in this mode. Caveat: the gateway's generate call passes no
+`safety_settings`, so dating photos hit Gemini's *default* thresholds rather
+than the loosened ones `llm/gemini.py` uses — if profiles start coming back
+blocked, that passthrough has to be added on the gateway side. See
+`llm/gateway.py`.
+
 ### Fill in context.md
 
 ```
@@ -75,6 +96,61 @@ it a profile.
 Runs on your machine while it's on. If you want it reachable with your
 laptop closed, move it to a cheap always-on box later (a $5/mo VPS, same
 code, `systemd` or `tmux` to keep it alive) — not needed to try it out.
+
+## Run it inside Hermes (or any MCP client)
+
+If you already run an agent that's on Telegram (this was built against
+[Hermes Agent](https://github.com/NousResearch/hermes-agent)), you don't
+need a second bot. `generic_mcp.py` exposes the judge as an MCP server, so
+you send a profile screenshot to your existing agent chat and it calls the
+judge. `bot.py` and `handlers/` are unused in this mode; `db.py`,
+`memory.py`, `llm/`, `context.md` and `generic.db` are shared — a profile
+judged this way lands in the same DB and `/report` as one judged by the
+standalone bot.
+
+```
+.venv/bin/pip install -r requirements-mcp.txt
+```
+
+`.env` still holds `GEMINI_API_KEY` (and optionally `GEMINI_MODEL`,
+`LLM_BACKEND`, `USER_NAME`, `CONTEXT_MD_PATH`, …) — or, for no local key at
+all, `LLM_BACKEND=gateway` + `LLM_GATEWAY_URL` (see "shared ai-gateway"
+above). The Telegram vars are **not** needed here.
+
+Register the server with your client. For Hermes, add to
+`~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  generic:
+    command: /ABSOLUTE/PATH/TO/generic-bot/.venv/bin/python
+    args: ["-m", "generic_mcp"]
+    # or pass the key here instead of generic-bot/.env:
+    # env:
+    #   GEMINI_API_KEY: "..."
+```
+
+then `systemctl --user restart hermes-gateway` (or restart however you run
+it). Hermes discovers the tools as `mcp_generic_*` and injects them into
+every platform toolset.
+
+Tools exposed:
+
+| Tool | Maps to |
+|---|---|
+| `judge_profile(image_paths)` | send photo(s) → `{decision_id, decision, reasoning, target_prompt, draft_message}` |
+| `record_outcome(decision_id, "liked"\|"skipped")` | the *liked / skipped* button |
+| `record_sent_message(decision_id, final_text, was_edited)` | the *sent as-is / edited* button → voice bank |
+| `add_about_note` / `list_about_notes` / `forget_about_note` | `/about` |
+| `log_week` / `weekly_history` / `funnel_report` | `/week` / `/history` / `/report` |
+
+The two-stage inline-button confirm becomes conversational — the agent
+asks whether you sent it and what you actually sent, then calls
+`record_outcome` + `record_sent_message`. Same data captured.
+
+Incoming Telegram photos: Hermes caches them to
+`~/.hermes/cache/images/` and hands tools `file://` paths;
+`judge_profile` takes those directly.
 
 ## Commands
 
