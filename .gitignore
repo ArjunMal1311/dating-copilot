@@ -1,9 +1,3 @@
-# Personal data. None of this should ever leave your machine.
-context.md
-generic.db
-generic.db-journal
-generic.db-wal
-generic.db-shm
 debug/
 .env
 
