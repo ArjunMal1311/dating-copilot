@@ -5,3 +5,13 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Personal + captured data. Never commit these: context.md is Arjun's identity
+# doc, generic.db holds judgements about real people, and shots/ is screenshots
+# of their profiles.
+context.md
+generic.db
+shots/
+*.png
+*.jpg
+*.jpeg

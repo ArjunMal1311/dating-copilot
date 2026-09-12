@@ -99,23 +99,106 @@ the same sourdough recipe for the fifth week" gets a reply.
 
 ---
 
-## Openers (for after the profile is fixed)
+## The like-comment (pre-match) — where the leverage actually is
 
-- Bare "hey" / "how's your day" dies — no thread to pull, forces her to do all the work.
-- **Most-repeated advice:** reference the *specific* prompt or photo that made you
-  like her, then ask **one** open question.
-- Compliment a *choice or detail* ("that jacket in photo 3 — where's that trail?"),
-  not her looks. "You're gorgeous" is noise every guy sends.
-- No pet names ("hey beautiful") before rapport — reads copy-pasted to creepy.
-- One spaced-out follow-up is fine; after that, stop.
-- Move to a concrete plan within a few days — in-app texting lets interest evaporate.
-- Caveat everyone repeats: **the opener maximizes a real chance, it doesn't create
-  one.** Fix photos and prompts first; that's where the leverage is.
+This is the comment attached to a like. It's the only thing she sees before
+deciding to match, and it gets seconds of attention in a queue she's skimming
+(over half of women report feeling overwhelmed by app message volume). All of
+this is enforced in `memory.py`'s system prompt, so the bot drafts to it — this
+section is the why.
 
-**Templates**
-1. `Your [her prompt] answer got me — [genuine one-line reaction]. [specific follow-up]?`
-2. `Okay I have to know the story behind [thing in a photo] — that can't be a normal Tuesday.`
-3. `Fellow [hobby] person. [concrete question or mild opinion]?`
+### The numbers
+- A like **with a comment** ends in a date roughly **twice as often** as a bare
+  like; ~7 in 10 daters say a comment makes them more willing to consider you.
+- Liking a **prompt** is ~**47% more likely** to end in a date than liking a
+  photo. Prompts are the channel she screens personality on — a prompt like
+  proves you read, a photo like only proves you looked.
+- But **a bad comment is worse than no comment.** One woman's own outbound log
+  showed her commented likes matching *less* often than her plain ones. A weak
+  line cancels out a strong profile. If nothing supports a real comment, a bare
+  like is the correct move.
+
+### The shape
+**One concrete detail + one low-cost question.** Statement alone underperforms.
+Question alone underperforms. One line, sometimes two, under ~25 words. A
+paragraph reads as intensity, and high effort reads as pressure.
+
+### Appreciation vs appraisal — the distinction that settles it
+Appreciation is being **recognised**. Appraisal is being **rated**. "You're
+beautiful" from a stranger is the second dressed as the first.
+
+Looks compliments measurably *lower* reply rates — "sexy", "beautiful",
+"gorgeous", "cutie" all correlate with fewer replies. Asked what compliment they
+actually want, women picked personality (~38%) and humour (~20%) over appearance
+(~16%); men picked appearance first. Men compliment by their own taste and miss.
+
+Appreciation lands only when **all** of these hold:
+- the object is a **choice she'd take credit for** — her taste, her joke, her
+  opinion, something she built — never a trait she was issued
+- it's specific enough to be **unsendable to anyone else**; the specificity *is*
+  the signal, it's evidence of attention rather than warmth
+- it's **demoted into a clause inside a real question**, so the payload is "tell
+  me about this", not "here's my rating of you"
+- it's said **once, lightly** — too much praise too early reads as projection
+- it sounds **slightly rough**; in 2026 polish is evidence of a machine
+
+### Counterintuitive findings
+- **Noticing the obvious thing is worse than noticing nothing.** One writer
+  mentioned the same musician twice in her profile and still got the most
+  predictable possible question about him — she found it insulting, because it
+  proved he skimmed. Go one level in: the odd aside, the throwaway clause, the
+  thing in a photo's background.
+- **Specific weird beats performed funny.** Joke-first openers get the sender
+  rated *lower* on intelligence and trustworthiness. Oddly specific and
+  genuinely curious is what gets remembered and answered.
+- **Try-hard is detected instantly** — you can feel the drafting. The specific
+  tell is the built-in reassurance-seeker: "(lol)", "hope that's not too weird",
+  "just kidding… kind of". Asking permission for the joke kills it.
+- **Templated/AI comments are caught and screenshotted into group chats.** The
+  giveaways: universal applicability, a too-polished or oddly formal register,
+  and the name-swap. Women compare notes.
+
+### Instant kill list
+Appearance-only compliment · sexual opener · any critique of her photos or body ·
+negging · a condition, comparison or correction attached ("you'd be great if…",
+"unlike other girls…") · a question her profile already answers · a question
+that's homework ("what song describes you") · bare "hey" (~1 in 500
+conversations start that way) · emoji strings with no substance.
+
+### India-specific (applies directly here)
+The extra failure mode is **exoticising** — curry and yoga jokes, men whose "I
+love Indian food" is their whole personality, being called *exotic* or
+*interesting* in a way unrelated to who she is. Being appreciated **as a
+category** isn't appreciation. Inbox volume is also higher, so anything generic
+is pre-discarded.
+
+### Five shapes that work
+1. **Detail + low-cost question** *(default, strongest)* — "You ranked the
+   Lisbon trip above Tokyo. What made Lisbon win?"
+2. **Take a side on her take** *(opinion prompts)* — "Pineapple on pizza being a
+   hate crime is a strong stance. I'll defend it, but badly."
+3. **Notice the small thing** *(when her prompts are generic)* — "Everyone's
+   going to comment on the dog. I want to know about the guitar behind it."
+4. **Shared specific, flat, no preamble** — "Your coffee shop is four minutes
+   from mine and I've never once seen you in it."
+5. **Dry riff, standing completely alone** *(highest risk)* — "Three to five
+   business days is generous. I was quoted two weeks." Nothing bolted on after.
+
+### Timing
+Evenings; Sunday 7–10pm best, midweek 7–9pm second. Marginal — content dominates
+timing, and the right hour never rescues a weak comment. Don't hold a good one
+back for a better slot.
+
+### The two-part test
+**Does it prove I read her profile, and does it hand her something she'd enjoy
+answering?** Either answer no → rewrite. The reframe underneath all of it: stop
+trying to make her feel complimented, start making her feel *interesting*.
+
+### Post-match (for later)
+One spaced-out follow-up is fine; after that, stop. Move to a concrete plan
+within a few days — in-app texting lets interest evaporate. And the caveat
+everyone repeats: **a comment maximises a real chance, it doesn't create one.**
+Photos and prompts are still where the leverage is.
 
 ---
 
