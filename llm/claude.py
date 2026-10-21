@@ -46,7 +46,7 @@ def judge(images: list[bytes], system_prompt: str) -> Decision:
 
     response = client.messages.create(
         model=config.CLAUDE_MODEL,
-        max_tokens=2000,
+        max_tokens=4000,
         thinking={"type": "adaptive"},
         output_config={"effort": "medium"},
         system=[{
@@ -68,7 +68,16 @@ def judge(images: list[bytes], system_prompt: str) -> Decision:
 
     for block in response.content:
         if block.type == "tool_use" and block.name == "submit_decision":
-            return Decision(**block.input, usage=usage)
+            data = block.input
+            return Decision(
+                decision=data["decision"],
+                reasoning=data["reasoning"],
+                target_prompt=data.get("target_prompt") or "",
+                draft_message=data.get("draft_message") or "",
+                draft_lane=data.get("draft_lane") or "",
+                alternatives=data.get("alternatives") or [],
+                usage=usage,
+            )
 
     raise RuntimeError(
         f"Claude did not return a tool_use block. stop_reason={response.stop_reason}"

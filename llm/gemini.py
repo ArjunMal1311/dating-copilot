@@ -14,7 +14,7 @@ from google import genai
 from google.genai import types
 
 import config
-from llm.base import DECISION_SCHEMA, Decision
+from llm.base import CORE_FIELDS, DECISION_SCHEMA, Decision
 
 # Dating-profile photos (swimwear, low light, close-ups) commonly trip
 # Gemini's default safety thresholds even when nothing is actually explicit.
@@ -77,7 +77,7 @@ def judge(images: list[bytes], system_prompt: str) -> Decision:
             f"'application/json': {text[:300]!r}"
         ) from e
 
-    missing = [k for k in DECISION_SCHEMA["required"] if k not in data]
+    missing = [k for k in CORE_FIELDS if k not in data]
     if missing:
         raise RuntimeError(f"Gemini JSON missing required fields {missing}: {data!r}")
 
@@ -92,6 +92,8 @@ def judge(images: list[bytes], system_prompt: str) -> Decision:
         reasoning=data["reasoning"],
         target_prompt=data.get("target_prompt", ""),
         draft_message=data.get("draft_message", ""),
+        draft_lane=data.get("draft_lane") or "",
+        alternatives=data.get("alternatives") or [],
         usage=usage,
     )
 

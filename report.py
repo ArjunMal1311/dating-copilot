@@ -8,10 +8,35 @@ the same read, and week-to-week noise is bigger than most real effects.
 from __future__ import annotations
 
 import db
+from llm.base import LANES
+
+
+def lane_breakdown() -> str:
+    """Reply/match rate per opener angle, from what was actually sent.
+    Empty string until at least one sent message has a known angle."""
+    rows = db.lane_stats()
+    if not rows:
+        return ""
+    lines = ["opener angles (what you sent -> what happened):"]
+    for r in rows:
+        label = LANES.get(r["lane"], r["lane"])
+        known = r["known"] or 0
+        result = (
+            f"{r['matched'] or 0}/{known} matched, {r['replied'] or 0} replied"
+            if known else "no results logged yet"
+        )
+        lines.append(f"  {label}: {r['sent']} sent, {result}")
+    if sum(r["known"] or 0 for r in rows) < 10:
+        lines.append(
+            "  (under 10 results logged in total, so treat these as hints, "
+            "not a verdict)"
+        )
+    return "\n".join(lines)
 
 
 def diagnose() -> str:
-    """Two header lines + exactly one diagnosis line, joined by newlines."""
+    """Two header lines + one diagnosis line, then the per-angle breakdown
+    once there is any data for it."""
     counts = db.count_decisions()
     stats = db.sum_recent_weekly_stats(weeks=4)
 
@@ -59,4 +84,7 @@ def diagnose() -> str:
             "the interesting signal shows up over several more weeks."
         )
 
+    breakdown = lane_breakdown()
+    if breakdown:
+        lines += ["", breakdown]
     return "\n".join(lines)

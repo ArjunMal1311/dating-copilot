@@ -7,10 +7,12 @@ a day) that costs nothing and avoids any connection-lifecycle bugs.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from difflib import SequenceMatcher
 from typing import Iterator
 
 import config
@@ -23,9 +25,14 @@ CREATE TABLE IF NOT EXISTS decisions (
     reasoning       TEXT NOT NULL DEFAULT '',
     target_prompt   TEXT NOT NULL DEFAULT '',
     draft_message   TEXT NOT NULL DEFAULT '',
+    draft_lane      TEXT,               -- opener shape of draft_message (llm.base.LANES)
+    alternatives    TEXT,               -- JSON list of backup drafts [{lane, target, message}]
     final_message   TEXT,               -- NULL until confirmed
+    sent_lane       TEXT,               -- shape of what was actually sent, NULL if unknown
     was_edited      INTEGER,            -- NULL until confirmed; 0 or 1 after
-    user_action     TEXT                -- NULL | 'liked' | 'skipped'
+    user_action     TEXT,               -- NULL | 'liked' | 'skipped'
+    matched         INTEGER,            -- NULL unknown; 0 or 1 once she's had a chance to respond
+    got_reply       INTEGER             -- NULL unknown; 0 or 1 once matched
 );
 
 CREATE TABLE IF NOT EXISTS context_notes (
@@ -59,6 +66,16 @@ def _conn() -> Iterator[sqlite3.Connection]:
 def init_db() -> None:
     with _conn() as conn:
         conn.executescript(SCHEMA)
+        existing = {row["name"] for row in conn.execute("PRAGMA table_info(decisions)")}
+        for col, typ in (
+            ("matched", "INTEGER"),
+            ("got_reply", "INTEGER"),
+            ("draft_lane", "TEXT"),
+            ("alternatives", "TEXT"),
+            ("sent_lane", "TEXT"),
+        ):
+            if col not in existing:
+                conn.execute(f"ALTER TABLE decisions ADD COLUMN {col} {typ}")
 
 
 def _now() -> str:
@@ -72,14 +89,44 @@ def insert_decision(
     reasoning: str,
     target_prompt: str,
     draft_message: str,
+    draft_lane: str = "",
+    alternatives: list[dict] | None = None,
 ) -> int:
     with _conn() as conn:
         cur = conn.execute(
             "INSERT INTO decisions (ts, decision, reasoning, target_prompt, "
-            "draft_message) VALUES (?, ?, ?, ?, ?)",
-            (_now(), decision, reasoning, target_prompt, draft_message),
+            "draft_message, draft_lane, alternatives) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                _now(), decision, reasoning, target_prompt, draft_message,
+                draft_lane or None, json.dumps(alternatives or []),
+            ),
         )
         return cur.lastrowid
+
+
+def get_alternatives(row: sqlite3.Row) -> list[dict]:
+    try:
+        return json.loads(row["alternatives"] or "[]")
+    except (ValueError, TypeError):
+        return []
+
+
+def infer_sent_lane(row: sqlite3.Row, final_message: str) -> str | None:
+    """Which drafted angle the sent text came from: the closest of the main
+    draft and the backups, if it's close enough to count as an edit of it
+    rather than something he wrote from scratch."""
+    candidates = []
+    if row["draft_message"] and row["draft_lane"]:
+        candidates.append((row["draft_message"], row["draft_lane"]))
+    candidates += [(a["message"], a["lane"]) for a in get_alternatives(row)]
+    best_lane, best_ratio = None, 0.0
+    sent = final_message.strip().lower()
+    for text, lane in candidates:
+        ratio = SequenceMatcher(None, sent, text.strip().lower()).ratio()
+        if ratio > best_ratio:
+            best_lane, best_ratio = lane, ratio
+    return best_lane if best_ratio >= 0.6 else None
 
 
 def get_decision(decision_id: int) -> sqlite3.Row | None:
@@ -98,24 +145,86 @@ def set_user_action(decision_id: int, action: str) -> None:
         )
 
 
-def set_final_message(decision_id: int, final_message: str, was_edited: bool) -> None:
+def set_final_message(
+    decision_id: int,
+    final_message: str,
+    was_edited: bool,
+    sent_lane: str | None = None,
+) -> str | None:
+    """Saves what was sent. sent_lane is inferred from the drafts when not
+    given. Returns the lane that was stored (None if it couldn't be told)."""
+    with _conn() as conn:
+        if sent_lane is None:
+            row = conn.execute(
+                "SELECT * FROM decisions WHERE id = ?", (decision_id,)
+            ).fetchone()
+            if row is not None:
+                sent_lane = infer_sent_lane(row, final_message)
+        conn.execute(
+            "UPDATE decisions SET final_message = ?, was_edited = ?, "
+            "sent_lane = ? WHERE id = ?",
+            (final_message, int(was_edited), sent_lane, decision_id),
+        )
+    return sent_lane
+
+
+def lane_stats() -> list[sqlite3.Row]:
+    """Per opener angle: how many sent, and of those with a known result,
+    how many matched / got a reply."""
+    with _conn() as conn:
+        return conn.execute(
+            "SELECT sent_lane AS lane, COUNT(*) AS sent, "
+            "SUM(matched IS NOT NULL) AS known, "
+            "SUM(matched = 1) AS matched, "
+            "SUM(got_reply = 1) AS replied "
+            "FROM decisions "
+            "WHERE user_action = 'liked' AND sent_lane IS NOT NULL "
+            "GROUP BY sent_lane ORDER BY sent DESC"
+        ).fetchall()
+
+
+def set_match_result(
+    decision_id: int, matched: bool, got_reply: bool | None = None
+) -> None:
+    """Record what actually happened after a sent message — the only real
+    signal for which draft shapes work, as opposed to which ones merely
+    look clean."""
     with _conn() as conn:
         conn.execute(
-            "UPDATE decisions SET final_message = ?, was_edited = ? WHERE id = ?",
-            (final_message, int(was_edited), decision_id),
+            "UPDATE decisions SET matched = ?, got_reply = ? WHERE id = ?",
+            (int(matched), None if got_reply is None else int(got_reply), decision_id),
         )
 
 
 def get_recent_voice_examples(limit: int) -> list[sqlite3.Row]:
-    """Confirmed sent messages, most recent first — the voice bank."""
+    """Confirmed sent messages — the voice bank. Ones known to have gotten a
+    reply or a match come first; recency is only the tiebreaker, since a
+    message that went nowhere isn't evidence of a voice worth repeating."""
     with _conn() as conn:
         return conn.execute(
-            "SELECT target_prompt, final_message FROM decisions "
+            "SELECT target_prompt, final_message, matched, got_reply "
+            "FROM decisions "
             "WHERE user_action = 'liked' AND final_message IS NOT NULL "
             "AND final_message != '' "
-            "ORDER BY ts DESC LIMIT ?",
+            "ORDER BY "
+            "CASE WHEN got_reply = 1 THEN 0 "
+            "     WHEN matched = 1 THEN 1 "
+            "     WHEN matched = 0 THEN 3 "
+            "     ELSE 2 END, "
+            "ts DESC LIMIT ?",
             (limit,),
         ).fetchall()
+
+
+def all_sent_messages() -> list[str]:
+    """Every opener he has sent, for the never-reuse-a-line check. Not
+    limited like the voice sample: a line sent once to anyone is spent."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT final_message FROM decisions "
+            "WHERE final_message IS NOT NULL AND final_message != ''"
+        ).fetchall()
+    return [r["final_message"] for r in rows]
 
 
 def count_decisions() -> dict[str, int]:

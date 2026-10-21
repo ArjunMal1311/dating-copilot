@@ -55,11 +55,14 @@ async def _run_judge_and_reply(chat_id: int, file_ids: list[str],
         await status.edit_text(f"judge failed: {e}")
         return
 
+    alternatives = memory.drop_failing_alternatives(decision.alternatives)
     decision_id = db.insert_decision(
         decision=decision.decision,
         reasoning=decision.reasoning,
         target_prompt=decision.target_prompt,
         draft_message=decision.draft_message,
+        draft_lane=decision.draft_lane,
+        alternatives=alternatives,
     )
 
     if decision.decision == "like":
@@ -68,6 +71,8 @@ async def _run_judge_and_reply(chat_id: int, file_ids: list[str],
             lines.append(f"\nrespond to: {decision.target_prompt}")
         if decision.draft_message:
             lines.append(f"\n{decision.draft_message}")
+            for alt in alternatives:
+                lines.append(f"\nbackup ({alt['target']}):\n{alt['message']}")
         else:
             lines.append("\n(no draft — write your own)")
         keyboard = InlineKeyboardMarkup([[

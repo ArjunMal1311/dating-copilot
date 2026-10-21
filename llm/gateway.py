@@ -40,7 +40,7 @@ import re
 import httpx
 
 import config
-from llm.base import DECISION_SCHEMA, Decision
+from llm.base import CORE_FIELDS, LANES, Decision
 
 # Spelled out because the gateway can't enforce the schema for us (no
 # response_json_schema on its generate call).
@@ -53,7 +53,13 @@ _JSON_INSTRUCTION = (
     'label), or "" if skip / no draft\n'
     '  "draft_message": the opener in the user\'s voice, or "" if skip / no '
     "specific hook\n"
-    'All four keys are required; use "" for the empties, never null.'
+    '  "draft_lane": which opener shape draft_message uses, one of '
+    + ", ".join(f'"{k}"' for k in LANES)
+    + ', or "" if no draft\n'
+    '  "alternatives": up to 2 backup openers as '
+    '[{"lane": ..., "target": ..., "message": ...}], each a different lane '
+    "from draft_lane and from each other, or [] if none\n"
+    'All keys are required; use "" or [] for the empties, never null.'
 )
 
 _FENCE_RE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
@@ -116,7 +122,7 @@ def judge(images: list[bytes], system_prompt: str) -> Decision:
 
     data = _parse_decision_json(text)
 
-    missing = [k for k in DECISION_SCHEMA["required"] if k not in data]
+    missing = [k for k in CORE_FIELDS if k not in data]
     if missing:
         raise RuntimeError(
             f"ai-gateway JSON missing required fields {missing}: {data!r}"
@@ -127,6 +133,8 @@ def judge(images: list[bytes], system_prompt: str) -> Decision:
         reasoning=data["reasoning"],
         target_prompt=data.get("target_prompt") or "",
         draft_message=data.get("draft_message") or "",
+        draft_lane=data.get("draft_lane") or "",
+        alternatives=data.get("alternatives") or [],
         usage={
             "input_tokens": body.get("input_tokens") or 0,
             "output_tokens": body.get("output_tokens") or 0,
