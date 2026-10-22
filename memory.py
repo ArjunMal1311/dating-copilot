@@ -346,9 +346,7 @@ def _notes_section() -> str:
     if not notes:
         return ""
     lines = [f"- {row['text']}" for row in notes]
-    return (
-        f"\n# Things {{name}} has told you since\n\n" + "\n".join(lines) + "\n"
-    )
+    return "\n# Things {name} has told you since\n\n" + "\n".join(lines) + "\n"
 
 
 def _outcome_tag(row: object) -> str:
@@ -369,53 +367,105 @@ def _voice_section() -> str:
     for row in examples:
         prompt_label = row["target_prompt"] or "(photo detail)"
         tag = _outcome_tag(row)
-        lines.append(
-            f'- responding to "{prompt_label}": {row["final_message"]!r}{tag}'
-        )
+        lines.append(f'- responding to "{prompt_label}": {row["final_message"]!r}{tag}')
     return (
-        f"\n# How {{name}} actually writes "
-        f"(real messages he has sent before, verbatim, tagged with what "
-        f"happened where known — match the voice of the ones that worked "
-        f"over the ones that didn't). These are spent: copy how he types, "
-        f"never a line, a phrase or the idea of one. Each of these has already "
-        f"gone to someone else\n\n"
-        + "\n".join(lines)
-        + "\n"
+        "\n# How {name} actually writes "
+        "(real messages he has sent before, verbatim, tagged with what "
+        "happened where known — match the voice of the ones that worked "
+        "over the ones that didn't). These are spent: copy how he types, "
+        "never a line, a phrase or the idea of one. Each of these has already "
+        "gone to someone else\n\n" + "\n".join(lines) + "\n"
     )
 
 
 _BANNED_WORDS = [
-    "delve", "tapestry", "testament", "navigate", "elevate", "underscore",
-    "realm", "embark", "curate", "intricate", "vibrant", "foster", "robust",
-    "seamless", "resonate", "crave", "speaks volumes", "the kind of",
-    "indeed", "rather", "quite", "delightful", "intriguing", "fascinating",
-    "wonderful", "objectively", "literally", "genuinely", "essentially",
-    "fundamentally", "inherently",
-    "reckon", "these days",
+    "delve",
+    "tapestry",
+    "testament",
+    "navigate",
+    "elevate",
+    "underscore",
+    "realm",
+    "embark",
+    "curate",
+    "intricate",
+    "vibrant",
+    "foster",
+    "robust",
+    "seamless",
+    "resonate",
+    "crave",
+    "speaks volumes",
+    "the kind of",
+    "indeed",
+    "rather",
+    "quite",
+    "delightful",
+    "intriguing",
+    "fascinating",
+    "wonderful",
+    "objectively",
+    "literally",
+    "genuinely",
+    "essentially",
+    "fundamentally",
+    "inherently",
+    "reckon",
+    "these days",
 ]
 _SERVICE_VOICE = [
-    "great question", "happy to", "feel free to", "i'd love to",
-    "absolutely", "let me know if",
+    "great question",
+    "happy to",
+    "feel free to",
+    "i'd love to",
+    "absolutely",
+    "let me know if",
 ]
 _HEDGES = ["no pressure", "totally fine if not", "if you're up for it"]
 _JOKE_TAGS = ["haha", "lol", "jk", "just kidding", "kidding"]
 _GREETINGS = ["hey", "hi ", "hi,", "hello"]
 _AUDIENCE_ADDRESS = [
-    "bold claim", "bold of you", "bold of u", "hot take", "unpopular opinion",
-    "wild take", "real talk",
+    "bold claim",
+    "bold of you",
+    "bold of u",
+    "hot take",
+    "unpopular opinion",
+    "wild take",
+    "real talk",
 ]
 # Phrases that credit an object in her photo for the photo, i.e. a
 # backhanded comment on her looks.
-_CARRYING = ["heavy lifting", "carrying the", "carrying this", "doing all the work",
-             "doing most of the work", "stealing the show", "upstaging"]
+_CARRYING = [
+    "heavy lifting",
+    "carrying the",
+    "carrying this",
+    "doing all the work",
+    "doing most of the work",
+    "stealing the show",
+    "upstaging",
+]
 _FAKE_INSTITUTION_WORDS = [
-    "procedure", "protocol", "policy", "criteria", "requirement",
-    "mandatory", "official", "data", "research", "analysis", "statistically",
+    "procedure",
+    "protocol",
+    "policy",
+    "criteria",
+    "requirement",
+    "mandatory",
+    "official",
+    "data",
+    "research",
+    "analysis",
+    "statistically",
 ]
 _BANNED_CHARS = {
-    "—": "em dash", ";": "semicolon", ":": "colon",
-    "‘": "curly quote", "’": "curly quote",
-    "“": "curly quote", "”": "curly quote", "…": "ellipsis",
+    "—": "em dash",
+    ";": "semicolon",
+    ":": "colon",
+    "‘": "curly quote",
+    "’": "curly quote",
+    "“": "curly quote",
+    "”": "curly quote",
+    "…": "ellipsis",
 }
 
 
@@ -472,13 +522,12 @@ def lint_draft(text: str) -> list[str]:
     for phrase in _CARRYING:
         if phrase in lower:
             issues.append(
-                f'"{phrase}" credits an object for her photo, a backhanded '
-                f"comment on her looks"
+                f'"{phrase}" credits an object for her photo, a backhanded comment on her looks'
             )
     if re.search(r"\bsurvives?\b[^.?!]{0,30}\bwithout\b", lower):
         issues.append("constructed hypothetical-challenge framing")
     if re.search(r"\bassume\b[^.?!]{0,20}\b(anyone|you'?d|you)\b", lower):
-        issues.append("constructed hypothetical (\"assume anyone/you...\")")
+        issues.append('constructed hypothetical ("assume anyone/you...")')
     for phrase in _AUDIENCE_ADDRESS:
         if phrase in lower:
             issues.append(f'audience-address opener "{phrase}"')

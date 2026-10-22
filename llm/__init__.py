@@ -13,11 +13,14 @@ import config
 def load_backend():
     if config.LLM_BACKEND == "gemini":
         import llm.gemini as backend
+
         return backend
     if config.LLM_BACKEND == "claude":
         import llm.claude as backend
+
         return backend
     if config.LLM_BACKEND == "gateway":
         import llm.gateway as backend
+
         return backend
     raise ValueError(f"Unknown LLM_BACKEND={config.LLM_BACKEND!r}")

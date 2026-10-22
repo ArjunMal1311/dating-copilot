@@ -9,11 +9,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from difflib import SequenceMatcher
-from typing import Iterator
 
 import config
 
@@ -91,6 +90,7 @@ def _now() -> str:
 
 # ---------- decisions ----------
 
+
 def insert_decision(
     decision: str,
     reasoning: str,
@@ -106,8 +106,13 @@ def insert_decision(
             "draft_message, draft_lane, alternatives, app) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                _now(), decision, reasoning, target_prompt, draft_message,
-                draft_lane or None, json.dumps(alternatives or []),
+                _now(),
+                decision,
+                reasoning,
+                target_prompt,
+                draft_message,
+                draft_lane or None,
+                json.dumps(alternatives or []),
                 app or "generic",
             ),
         )
@@ -140,9 +145,7 @@ def infer_sent_lane(row: sqlite3.Row, final_message: str) -> str | None:
 
 def get_decision(decision_id: int) -> sqlite3.Row | None:
     with _conn() as conn:
-        return conn.execute(
-            "SELECT * FROM decisions WHERE id = ?", (decision_id,)
-        ).fetchone()
+        return conn.execute("SELECT * FROM decisions WHERE id = ?", (decision_id,)).fetchone()
 
 
 def set_user_action(decision_id: int, action: str) -> None:
@@ -164,14 +167,11 @@ def set_final_message(
     given. Returns the lane that was stored (None if it couldn't be told)."""
     with _conn() as conn:
         if sent_lane is None:
-            row = conn.execute(
-                "SELECT * FROM decisions WHERE id = ?", (decision_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM decisions WHERE id = ?", (decision_id,)).fetchone()
             if row is not None:
                 sent_lane = infer_sent_lane(row, final_message)
         conn.execute(
-            "UPDATE decisions SET final_message = ?, was_edited = ?, "
-            "sent_lane = ? WHERE id = ?",
+            "UPDATE decisions SET final_message = ?, was_edited = ?, sent_lane = ? WHERE id = ?",
             (final_message, int(was_edited), sent_lane, decision_id),
         )
     return sent_lane
@@ -192,9 +192,7 @@ def lane_stats() -> list[sqlite3.Row]:
         ).fetchall()
 
 
-def set_match_result(
-    decision_id: int, matched: bool, got_reply: bool | None = None
-) -> None:
+def set_match_result(decision_id: int, matched: bool, got_reply: bool | None = None) -> None:
     """Record what actually happened after a sent message — the only real
     signal for which draft shapes work, as opposed to which ones merely
     look clean."""
@@ -270,6 +268,7 @@ def count_decisions_by_app() -> list[sqlite3.Row]:
 
 # ---------- context_notes ----------
 
+
 def add_context_note(text: str) -> int:
     with _conn() as conn:
         cur = conn.execute(
@@ -282,8 +281,7 @@ def add_context_note(text: str) -> int:
 def list_active_notes(limit: int) -> list[sqlite3.Row]:
     with _conn() as conn:
         return conn.execute(
-            "SELECT id, ts, text FROM context_notes WHERE active = 1 "
-            "ORDER BY ts DESC LIMIT ?",
+            "SELECT id, ts, text FROM context_notes WHERE active = 1 ORDER BY ts DESC LIMIT ?",
             (limit,),
         ).fetchall()
 
@@ -299,6 +297,7 @@ def deactivate_note(note_id: int) -> bool:
 
 
 # ---------- weekly_stats ----------
+
 
 def current_week_start(today: date | None = None) -> str:
     """ISO date of the Monday on or before `today` (default: today)."""

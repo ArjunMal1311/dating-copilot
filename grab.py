@@ -72,7 +72,7 @@ def _rows(path: Path) -> list[bytes]:
         area = im.crop((int(w * 0.10), int(h * 0.10), int(w * 0.80), int(h * 0.80))).convert("L")
         area = area.resize((64, 160))
         data = area.tobytes()
-    return [data[i * 64:(i + 1) * 64] for i in range(160)]
+    return [data[i * 64 : (i + 1) * 64] for i in range(160)]
 
 
 def _page_moved(prev: list[bytes], cur: list[bytes]) -> bool:
@@ -83,11 +83,11 @@ def _page_moved(prev: list[bytes], cur: list[bytes]) -> bool:
     Plain rows (blank card backgrounds) are ignored since they match
     anywhere."""
     detailed = same = 0
-    for a, b in zip(prev, cur):
-        if max(a) - min(a) < 40:          # flat row, carries no position info
+    for a, b in zip(prev, cur, strict=True):
+        if max(a) - min(a) < 40:  # flat row, carries no position info
             continue
         detailed += 1
-        if sum(abs(x - y) for x, y in zip(a, b)) / 64 < 2:
+        if sum(abs(x - y) for x, y in zip(a, b, strict=True)) / 64 < 2:
             same += 1
     # Tuned on real captures: scrolls score <= 0.07, a stuck page with a
     # playing video scores ~0.31.
@@ -132,16 +132,23 @@ def _focus_waydroid() -> None:
     name = "dating_grab_focus"
     try:
         sid = subprocess.run(
-            [q, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.loadScript",
-             str(js), name],
-            check=True, capture_output=True, text=True, timeout=5,
+            [q, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.loadScript", str(js), name],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
         ).stdout.strip()
-        subprocess.run([q, "org.kde.KWin", f"/Scripting/Script{sid}",
-                        "org.kde.kwin.Script.run"], check=True, timeout=5)
+        subprocess.run(
+            [q, "org.kde.KWin", f"/Scripting/Script{sid}", "org.kde.kwin.Script.run"],
+            check=True,
+            timeout=5,
+        )
     finally:
-        subprocess.run([q, "org.kde.KWin", "/Scripting",
-                        "org.kde.kwin.Scripting.unloadScript", name],
-                       capture_output=True, timeout=5)
+        subprocess.run(
+            [q, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.unloadScript", name],
+            capture_output=True,
+            timeout=5,
+        )
     time.sleep(0.5)
 
 
@@ -149,15 +156,15 @@ def _adb_serial() -> str:
     """Connect adb to the running Waydroid container and return its serial.
     The container IP comes from `waydroid status`, so a changed IP after a
     restart doesn't break this."""
-    out = subprocess.run(["waydroid", "status"], capture_output=True,
-                         text=True, timeout=10).stdout
+    out = subprocess.run(["waydroid", "status"], capture_output=True, text=True, timeout=10).stdout
     m = re.search(r"IP address:\s*(\S+)", out)
     if not m:
         raise SystemExit("waydroid session isn't running (no IP in `waydroid status`).")
     serial = f"{m.group(1)}:5555"
     subprocess.run(["adb", "connect", serial], capture_output=True, timeout=10)
-    state = subprocess.run(["adb", "-s", serial, "get-state"], capture_output=True,
-                           text=True, timeout=10)
+    state = subprocess.run(
+        ["adb", "-s", serial, "get-state"], capture_output=True, text=True, timeout=10
+    )
     if state.stdout.strip() != "device":
         raise SystemExit(
             f"adb can't use {serial} ({(state.stderr or state.stdout).strip()}). "
@@ -167,8 +174,9 @@ def _adb_serial() -> str:
 
 
 def _adb(serial: str, *args: str) -> str:
-    return subprocess.run(["adb", "-s", serial, "shell", *args], capture_output=True,
-                          text=True, timeout=15).stdout
+    return subprocess.run(
+        ["adb", "-s", serial, "shell", *args], capture_output=True, text=True, timeout=15
+    ).stdout
 
 
 def _focused_frame(serial: str) -> tuple[int, int, int, int]:
@@ -283,13 +291,23 @@ def main() -> None:
     ap.add_argument("-s", "--seconds", type=float, default=12.0)
     ap.add_argument("-i", "--interval", type=float, default=1.2)
     ap.add_argument("-o", "--out", type=Path, default=None)
-    ap.add_argument("-l", "--lead", type=float, default=3.0,
-                     help="seconds to click into the profile window before capture starts")
+    ap.add_argument(
+        "-l",
+        "--lead",
+        type=float,
+        default=3.0,
+        help="seconds to click into the profile window before capture starts",
+    )
     ap.add_argument("--no-judge", action="store_true")
-    ap.add_argument("--manual", action="store_true",
-                    help="you click in and scroll yourself (no adb)")
-    ap.add_argument("--settle", type=float, default=0.9,
-                    help="auto mode: seconds to let a scroll finish before capturing")
+    ap.add_argument(
+        "--manual", action="store_true", help="you click in and scroll yourself (no adb)"
+    )
+    ap.add_argument(
+        "--settle",
+        type=float,
+        default=0.9,
+        help="auto mode: seconds to let a scroll finish before capturing",
+    )
     ap.add_argument(
         "--app",
         default=config.DEFAULT_APP,
@@ -312,8 +330,8 @@ def main() -> None:
     if args.no_judge:
         return
 
-    import db
     import dating_mcp
+    import db
     from llm.base import LANES
 
     db.init_db()

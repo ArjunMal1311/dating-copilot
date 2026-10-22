@@ -10,7 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # Opener angles. One draft per angle, so a profile gets the main draft plus
 # up to two backups that each try something different, and the funnel can
 # later show which angle actually gets replies. Keep in sync with the
@@ -46,11 +45,11 @@ def profile_user_text(n: int, app: str = "generic") -> str:
 
 @dataclass
 class Decision:
-    decision: str          # "like" | "skip"
+    decision: str  # "like" | "skip"
     reasoning: str
-    target_prompt: str = ""    # which of her prompts to respond to; '' if skip
-    draft_message: str = ""    # '' if skip, or if LIKE with no good hook found
-    draft_lane: str = ""       # one of LANES, or '' when there is no draft
+    target_prompt: str = ""  # which of her prompts to respond to; '' if skip
+    draft_message: str = ""  # '' if skip, or if LIKE with no good hook found
+    draft_lane: str = ""  # one of LANES, or '' when there is no draft
     # Backups: [{"lane", "target", "message"}, ...], at most MAX_ALTERNATIVES,
     # each a different lane from draft_lane and from each other.
     alternatives: list[dict[str, str]] = field(default_factory=list)
@@ -88,11 +87,13 @@ def clean_alternatives(
             continue
         seen_text.add(msg.lower())
         seen_lane.add(lane)
-        out.append({
-            "lane": lane,
-            "target": str(item.get("target") or "").strip(),
-            "message": msg,
-        })
+        out.append(
+            {
+                "lane": lane,
+                "target": str(item.get("target") or "").strip(),
+                "message": msg,
+            }
+        )
         if len(out) >= MAX_ALTERNATIVES:
             break
     return out

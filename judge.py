@@ -10,9 +10,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import apps as app_catalog
 import db
-import dating_mcp
+from judge_service import judge_profile
 from llm.base import LANES
 
 
@@ -23,9 +22,7 @@ def main() -> None:
     args = parser.parse_args()
 
     db.init_db()
-    result = dating_mcp.judge_profile(
-        [str(path) for path in args.image_paths], app=app_catalog.normalize(args.app)
-    )
+    result = judge_profile([str(path) for path in args.image_paths], app=args.app)
     print(f"{result['decision'].upper()}  (#{result['decision_id']})")
     print(result["reasoning"])
     if not result["draft_message"]:

@@ -47,8 +47,10 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 
 if LLM_BACKEND == "gemini" and not GEMINI_API_KEY:
-    _fail("LLM_BACKEND=gemini but GEMINI_API_KEY is empty. Get one at "
-          "https://aistudio.google.com/apikey")
+    _fail(
+        "LLM_BACKEND=gemini but GEMINI_API_KEY is empty. Get one at "
+        "https://aistudio.google.com/apikey"
+    )
 if LLM_BACKEND == "claude" and not ANTHROPIC_API_KEY:
     _fail("LLM_BACKEND=claude but ANTHROPIC_API_KEY is empty.")
 # gateway needs no local key — the gateway service holds the pool.
@@ -59,9 +61,7 @@ CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5").strip()
 # ---------- ai-gateway backend (LLM_BACKEND=gateway) ----------
 # Base URL of the running gateway. Trailing slash trimmed so f"{URL}/v1/generate"
 # is always well-formed.
-LLM_GATEWAY_URL = os.environ.get(
-    "LLM_GATEWAY_URL", "http://localhost:8080"
-).strip().rstrip("/")
+LLM_GATEWAY_URL = os.environ.get("LLM_GATEWAY_URL", "http://localhost:8080").strip().rstrip("/")
 # Empty => let the gateway walk its own config/models.yaml priority list (kept
 # current there). Set it to pin one model (gateway then does no cross-model
 # fallback for this call).
@@ -93,8 +93,9 @@ _db_env = os.environ.get("DB_PATH", "").strip()
 DB_PATH = Path(_db_env) if _db_env else BASE_DIR / "dating.db"
 
 # ---------- Images ----------
-MAX_EDGE = 1092       # long-edge downscale before sending to the judge
+MAX_EDGE = 1092  # long-edge downscale before sending to the judge
 JPEG_QUALITY = 85
+
 
 def check_context_file() -> None:
     """Warn (not fail) if context.md is missing — the tools still run, but

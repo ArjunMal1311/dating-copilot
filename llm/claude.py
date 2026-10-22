@@ -36,21 +36,25 @@ def judge(images: list[bytes], system_prompt: str, app: str = "generic") -> Deci
     client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
     content = [_image_block(img) for img in images]
-    content.append({
-        "type": "text",
-        "text": profile_user_text(len(images), app),
-    })
+    content.append(
+        {
+            "type": "text",
+            "text": profile_user_text(len(images), app),
+        }
+    )
 
     response = client.messages.create(
         model=config.CLAUDE_MODEL,
         max_tokens=4000,
         thinking={"type": "adaptive"},
         output_config={"effort": "medium"},
-        system=[{
-            "type": "text",
-            "text": system_prompt,
-            "cache_control": {"type": "ephemeral"},
-        }],
+        system=[
+            {
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
         tools=[DECIDE_TOOL],
         tool_choice={"type": "tool", "name": "submit_decision"},
         messages=[{"role": "user", "content": content}],
@@ -59,8 +63,7 @@ def judge(images: list[bytes], system_prompt: str, app: str = "generic") -> Deci
     usage = {
         "input_tokens": getattr(response.usage, "input_tokens", 0),
         "output_tokens": getattr(response.usage, "output_tokens", 0),
-        "cache_read_input_tokens":
-            getattr(response.usage, "cache_read_input_tokens", 0) or 0,
+        "cache_read_input_tokens": getattr(response.usage, "cache_read_input_tokens", 0) or 0,
     }
 
     for block in response.content:

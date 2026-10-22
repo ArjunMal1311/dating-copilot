@@ -40,9 +40,7 @@ def judge(images: list[bytes], system_prompt: str, app: str = "generic") -> Deci
     """images: JPEG bytes, top-to-bottom profile order. Returns a Decision."""
     client = _client()
 
-    contents = [
-        types.Part.from_bytes(data=img, mime_type="image/jpeg") for img in images
-    ]
+    contents = [types.Part.from_bytes(data=img, mime_type="image/jpeg") for img in images]
     contents.append(profile_user_text(len(images), app))
 
     response = client.models.generate_content(
@@ -62,9 +60,7 @@ def judge(images: list[bytes], system_prompt: str, app: str = "generic") -> Deci
         # Surface that plainly instead of returning a hollow Decision the
         # caller would otherwise treat as a real (empty) skip.
         reason = _block_reason(response)
-        raise RuntimeError(
-            f"Gemini returned no text (likely blocked). {reason}"
-        )
+        raise RuntimeError(f"Gemini returned no text (likely blocked). {reason}")
 
     try:
         data = json.loads(text)

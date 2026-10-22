@@ -21,42 +21,15 @@ DEFAULT_APP / VOICE_SAMPLE_COUNT / CONTEXT_NOTE_LIMIT.
 
 from __future__ import annotations
 
-import io
-from pathlib import Path
-from urllib.parse import unquote, urlparse
-
 from mcp.server.fastmcp import FastMCP
-from PIL import Image
 
-import apps as app_catalog
 import config
 import db
-import memory
 import report
-from llm import load_backend
+from judge_service import judge_profile as _judge_profile
 from llm.base import LANES
 
 mcp = FastMCP("dating")
-
-_MAX_IMAGES = 12
-
-
-def _resolve(path: str) -> Path:
-    """Accept a plain path or a file:// URL (Hermes hands tools file:// paths
-    for cached inbound images)."""
-    if path.startswith("file://"):
-        path = unquote(urlparse(path).path)
-    return Path(path).expanduser()
-
-
-def _downscale(fp: Path) -> bytes:
-    """Downscale an image to JPEG before sending it to the judge."""
-    with Image.open(fp) as img:
-        img = img.convert("RGB")
-        img.thumbnail((config.MAX_EDGE, config.MAX_EDGE), Image.LANCZOS)
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=config.JPEG_QUALITY)
-        return buf.getvalue()
 
 
 @mcp.tool()
@@ -83,72 +56,7 @@ def judge_profile(image_paths: list[str], app: str = "generic") -> dict:
     After the user acts in the app, call record_outcome; if they liked and
     sent, also call record_sent_message with the exact text they sent.
     """
-    slug = app_catalog.normalize(app)
-    if not image_paths:
-        raise ValueError("image_paths is empty — pass the profile screenshots.")
-    if len(image_paths) > _MAX_IMAGES:
-        raise ValueError(
-            f"got {len(image_paths)} images; max is {_MAX_IMAGES}. Send one "
-            f"profile at a time."
-        )
-
-    images: list[bytes] = []
-    for raw_path in image_paths:
-        fp = _resolve(raw_path)
-        if not fp.is_file():
-            raise ValueError(f"not a readable file: {fp}")
-        images.append(_downscale(fp))
-
-    system_prompt = memory.build_system_prompt(slug)
-    decision = load_backend().judge(images, system_prompt, app=slug)
-
-    if decision.draft_message:
-        issues = memory.check_draft(decision.draft_message)
-        if issues:
-            retry_prompt = (
-                f"{system_prompt}\n\n"
-                "# Your previous draft failed these checks\n\n"
-                f'draft_message was: {decision.draft_message!r}\n'
-                "Problems found:\n"
-                + "\n".join(f"- {issue}" for issue in issues)
-                + "\n\nRewrite draft_message to fix every problem above while "
-                "keeping the same decision, reasoning and target_prompt. If "
-                "no clean draft is possible, use an empty string instead."
-            )
-            retried = load_backend().judge(images, retry_prompt, app=slug)
-            if retried.draft_message or not decision.draft_message:
-                decision = retried
-
-    alternatives = memory.drop_failing_alternatives(decision.alternatives)
-
-    if decision.draft_message and memory.reused_line(decision.draft_message):
-        if alternatives:
-            promoted = alternatives.pop(0)
-            decision.draft_message = promoted["message"]
-            decision.draft_lane = promoted["lane"]
-            decision.target_prompt = promoted["target"] or decision.target_prompt
-        else:
-            decision.draft_message, decision.draft_lane = "", ""
-
-    decision_id = db.insert_decision(
-        decision=decision.decision,
-        reasoning=decision.reasoning,
-        target_prompt=decision.target_prompt,
-        draft_message=decision.draft_message,
-        draft_lane=decision.draft_lane,
-        alternatives=alternatives,
-        app=slug,
-    )
-    return {
-        "decision_id": decision_id,
-        "decision": decision.decision,
-        "reasoning": decision.reasoning,
-        "target_prompt": decision.target_prompt,
-        "draft_message": decision.draft_message,
-        "draft_lane": decision.draft_lane,
-        "alternatives": alternatives,
-        "app": slug,
-    }
+    return _judge_profile(image_paths, app)
 
 
 @mcp.tool()
@@ -200,9 +108,7 @@ def record_sent_message(
 
 
 @mcp.tool()
-def record_match_result(
-    decision_id: int, matched: bool, got_reply: bool | None = None
-) -> str:
+def record_match_result(decision_id: int, matched: bool, got_reply: bool | None = None) -> str:
     """Record what actually happened after a sent message — the real signal
     for which draft shapes work.
 
@@ -254,9 +160,7 @@ def log_week(
     if likes is None and matches is None and dates is None:
         raise ValueError("pass at least one of likes / matches / dates.")
     week_start = db.current_week_start()
-    db.upsert_weekly_stats(
-        week_start, likes_received=likes, matches=matches, dates=dates
-    )
+    db.upsert_weekly_stats(week_start, likes_received=likes, matches=matches, dates=dates)
     logged = ", ".join(
         f"{k}={v}"
         for k, v in (("likes", likes), ("matches", matches), ("dates", dates))

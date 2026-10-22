@@ -1,5 +1,9 @@
 # Contributing
 
+Run `make check` before opening a pull request. The test suite exercises the
+public `judge_service.judge_profile` interface; add behaviour tests there
+instead of testing CLI or MCP implementation details.
+
 This is a **screenshot-in, draft-out copilot**. It never logs into a dating
 app, never swipes, and never sends a message. Pull requests that add account
 clients, unofficial APIs, or swipe/send automation will be closed.

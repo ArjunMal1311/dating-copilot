@@ -79,19 +79,14 @@ def judge(images: list[bytes], system_prompt: str, app: str = "generic") -> Deci
         }
         for img in images
     )
-    parts.append(
-        profile_user_text(len(images), app)
-        + " Respond with ONLY the JSON object."
-    )
+    parts.append(profile_user_text(len(images), app) + " Respond with ONLY the JSON object.")
 
     payload: dict = {"parts": parts}
     if config.LLM_GATEWAY_MODEL:
         payload["model"] = config.LLM_GATEWAY_MODEL
 
     try:
-        resp = httpx.post(
-            _endpoint(), json=payload, timeout=config.LLM_GATEWAY_TIMEOUT
-        )
+        resp = httpx.post(_endpoint(), json=payload, timeout=config.LLM_GATEWAY_TIMEOUT)
     except httpx.ConnectError as e:
         raise RuntimeError(
             f"ai-gateway unreachable at {config.LLM_GATEWAY_URL} — start it "
@@ -109,23 +104,17 @@ def judge(images: list[bytes], system_prompt: str, app: str = "generic") -> Deci
     try:
         body = resp.json()
     except ValueError as e:
-        raise RuntimeError(
-            f"ai-gateway returned non-JSON on 200: {resp.text[:300]!r}"
-        ) from e
+        raise RuntimeError(f"ai-gateway returned non-JSON on 200: {resp.text[:300]!r}") from e
 
     text = (body.get("text") or "").strip()
     if not text:
-        raise RuntimeError(
-            f"ai-gateway returned an empty 'text' field. Full body: {body!r}"
-        )
+        raise RuntimeError(f"ai-gateway returned an empty 'text' field. Full body: {body!r}")
 
     data = _parse_decision_json(text)
 
     missing = [k for k in CORE_FIELDS if k not in data]
     if missing:
-        raise RuntimeError(
-            f"ai-gateway JSON missing required fields {missing}: {data!r}"
-        )
+        raise RuntimeError(f"ai-gateway JSON missing required fields {missing}: {data!r}")
 
     return Decision(
         decision=data["decision"],
@@ -161,8 +150,7 @@ def _parse_decision_json(text: str) -> dict:
             pass
 
     raise RuntimeError(
-        f"ai-gateway response wasn't JSON (no schema enforcement on this "
-        f"path): {text[:300]!r}"
+        f"ai-gateway response wasn't JSON (no schema enforcement on this path): {text[:300]!r}"
     )
 
 

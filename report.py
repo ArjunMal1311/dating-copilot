@@ -22,14 +22,12 @@ def lane_breakdown() -> str:
         known = r["known"] or 0
         result = (
             f"{r['matched'] or 0}/{known} matched, {r['replied'] or 0} replied"
-            if known else "no results logged yet"
+            if known
+            else "no results logged yet"
         )
         lines.append(f"  {label}: {r['sent']} sent, {result}")
     if sum(r["known"] or 0 for r in rows) < 10:
-        lines.append(
-            "  (under 10 results logged in total, so treat these as hints, "
-            "not a verdict)"
-        )
+        lines.append("  (under 10 results logged in total, so treat these as hints, not a verdict)")
     return "\n".join(lines)
 
 
@@ -85,10 +83,7 @@ def diagnose() -> str:
 
     by_app = db.count_decisions_by_app()
     if len(by_app) > 1:
-        bits = [
-            f"{r['app']}: {r['judged']} judged, {r['liked'] or 0} liked"
-            for r in by_app
-        ]
+        bits = [f"{r['app']}: {r['judged']} judged, {r['liked'] or 0} liked" for r in by_app]
         lines += ["", "by app: " + "; ".join(bits)]
 
     breakdown = lane_breakdown()
