@@ -1,6 +1,6 @@
 """SQLite storage for dating-copilot.
 
-Three tables, no ORM — this is a single-user personal bot, not a service.
+Three tables, no ORM — this is a single-user local tool, not a service.
 A fresh connection is opened per call; at this volume (a handful of writes
 a day) that costs nothing and avoids any connection-lifecycle bugs.
 """
@@ -79,7 +79,9 @@ def init_db() -> None:
             if col not in existing:
                 conn.execute(f"ALTER TABLE decisions ADD COLUMN {col} {typ}")
         conn.execute(
-            "UPDATE decisions SET app = 'generic' WHERE app IS NULL OR app = ''"
+            "UPDATE decisions SET app = 'generic' WHERE app IS NULL OR app = '' "
+            "OR app NOT IN ('generic','like_comment','match_then_message',"
+            "'she_opens','essays')"
         )
 
 
@@ -235,7 +237,7 @@ def all_sent_messages() -> list[str]:
 
 
 def count_decisions() -> dict[str, int]:
-    """Funnel counts for /report."""
+    """Funnel counts for reporting."""
     with _conn() as conn:
         total = conn.execute("SELECT COUNT(*) FROM decisions").fetchone()[0]
         liked_rec = conn.execute(
@@ -256,7 +258,7 @@ def count_decisions() -> dict[str, int]:
 
 
 def count_decisions_by_app() -> list[sqlite3.Row]:
-    """Judged / liked counts per dating app, for /report."""
+    """Judged / liked counts per profile format, for reporting."""
     with _conn() as conn:
         return conn.execute(
             "SELECT COALESCE(app, 'generic') AS app, COUNT(*) AS judged, "

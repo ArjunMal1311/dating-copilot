@@ -1,6 +1,5 @@
-# Optional. Only needed to run generic_mcp.py — the MCP-server mode that lets an
-# existing MCP client (e.g. Hermes Agent, already on Telegram) drive the judge
-# instead of running the standalone bot.py.
+# Included in requirements.txt. Keep this file for people who install only the
+# optional MCP server interface.
 #
 # Pinned to the v1 API line: mcp 2.x renamed FastMCP -> MCPServer and changed
 # APIs. Match your client — Hermes ships mcp 1.x.

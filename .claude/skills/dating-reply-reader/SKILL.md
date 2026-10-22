@@ -41,7 +41,7 @@ screenshot, ask — never guess which side is them.
    sqlite3 dating.db \
      "select final_message from decisions where final_message is not null order by id desc limit 15"
    ```
-3. **Notes about him:** `list_about_notes` on the dating MCP server.
+3. **Notes about him:** inspect active rows in `context_notes` in `dating.db`.
 4. **This match's opener**, if he knows roughly when he liked her: look up the
    decision row (`target_prompt`, `final_message`) so you know how the chat
    started. Optional — don't block on it.

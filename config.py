@@ -1,4 +1,4 @@
-"""Configuration for the dating-copilot Telegram assistant.
+"""Configuration for the local dating-copilot tools.
 
 All values come from .env (see .env.example). Nothing here is guessed or
 defaulted silently for the things that matter — a missing token or key
@@ -32,33 +32,6 @@ def _require(name: str) -> str:
         _fail(f"{name} is not set. Copy .env.example to .env and fill it in.")
     return val
 
-
-# ---------- Telegram ----------
-# Not required at import: dating_mcp.py (MCP-client integration) reuses this
-# module for the Gemini key, DB path and identity config but never touches
-# Telegram. bot.py calls require_telegram() at startup to fail loudly.
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-
-_raw_user_id = os.environ.get("TELEGRAM_ALLOWED_USER_ID", "").strip()
-try:
-    TELEGRAM_ALLOWED_USER_ID = int(_raw_user_id) if _raw_user_id else None
-except ValueError:
-    _fail(f"TELEGRAM_ALLOWED_USER_ID={_raw_user_id!r} isn't a number. "
-          f"Message @userinfobot on Telegram to get your numeric id.")
-
-
-def require_telegram() -> None:
-    """Fail loudly if the Telegram vars needed by bot.py are missing.
-
-    Called from bot.main(), not at import — so dating_mcp.py can import this
-    module without a bot token.
-    """
-    if not TELEGRAM_BOT_TOKEN:
-        _fail("TELEGRAM_BOT_TOKEN is not set. Copy .env.example to .env and "
-              "fill it in.")
-    if TELEGRAM_ALLOWED_USER_ID is None:
-        _fail("TELEGRAM_ALLOWED_USER_ID is not set. Message @userinfobot on "
-              "Telegram to get your numeric id.")
 
 # ---------- Judge backend ----------
 # gemini  — call the Gemini SDK directly with a single local GEMINI_API_KEY.
@@ -112,32 +85,19 @@ VOICE_SAMPLE_COUNT = int(os.environ.get("VOICE_SAMPLE_COUNT", "12"))
 # a very long history doesn't silently balloon every request.
 CONTEXT_NOTE_LIMIT = int(os.environ.get("CONTEXT_NOTE_LIMIT", "40"))
 
-# Which dating app the next judge call is for (generic/generic/generic/generic/generic).
+# Profile format for the next judge call (see apps.py / apps/*.md).
 DEFAULT_APP = os.environ.get("DEFAULT_APP", "generic").strip().lower() or "generic"
 
 # ---------- Storage ----------
-# Prefer dating.db; fall back to a leftover generic.db from older checkouts.
 _db_env = os.environ.get("DB_PATH", "").strip()
-if _db_env:
-    DB_PATH = Path(_db_env)
-else:
-    _dating = BASE_DIR / "dating.db"
-    _legacy = BASE_DIR / "generic.db"
-    DB_PATH = _dating if _dating.exists() or not _legacy.exists() else _legacy
+DB_PATH = Path(_db_env) if _db_env else BASE_DIR / "dating.db"
 
 # ---------- Images ----------
 MAX_EDGE = 1092       # long-edge downscale before sending to the judge
 JPEG_QUALITY = 85
 
-# ---------- Telegram album handling ----------
-# Telegram delivers an album as N separate Updates sharing one
-# media_group_id, not one Update with N photos. This is how long to wait
-# after the last photo in a group before treating it as complete.
-ALBUM_DEBOUNCE_SECONDS = 1.5
-
-
 def check_context_file() -> None:
-    """Warn (not fail) if context.md is missing — the bot still runs, but
+    """Warn (not fail) if context.md is missing — the tools still run, but
     every judge call will be operating with no identity at all."""
     if not CONTEXT_MD_PATH.exists():
         print(

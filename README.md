@@ -1,24 +1,8 @@
 # dating-copilot
 
-Send it screenshots of a dating profile (Generic, Generic, Generic, Generic,
-or anything similar). It tells you LIKE or SKIP, which detail to answer,
-and drafts an opener in your actual voice. You review, edit if you want,
-and send everything yourself — **the copilot never touches the app.**
-Zero account automation, zero unofficial APIs.
-
-## What it does
-
-- Send a profile album (or a single photo) → judged against your
-  `context.md` → LIKE/SKIP + reasoning, and if LIKE, a target/hook + a
-  draft opener (or no draft, which is a valid answer).
-- Tell it which app the shots are from (`/app generic`, or `app=` on the
-  MCP tool). Default is Generic so existing workflows don't break.
-- Two taps close the loop: **liked/skipped**, then **sent as-is/edited**
-  (so the message you *actually sent* becomes a voice example).
-- `/about <text>` — tell it something new about you; it remembers.
-- `/week likes=X matches=Y dates=Z` — log your week.
-- `/report` — a plain-rule funnel diagnosis, including a split by app
-  once you've judged more than one.
+Local, screenshot-in profile review. It returns a like/skip recommendation,
+the best detail to answer, and opener drafts in your voice. You review and
+send everything yourself; it never controls an account or types into an app.
 
 ## Setup
 
@@ -29,71 +13,54 @@ cp .env.example .env
 cp context.md.example context.md
 ```
 
-Fill `context.md` — especially **Your voice**. A thin identity doc
-produces generic copy.
+Set the API key for your chosen backend in `.env`, then fill in
+`context.md`, especially **Your voice**. The tool keeps decisions, sent
+messages, and identity notes locally in `dating.db`.
 
-### Telegram
+## Direct use
 
-1. Message **@BotFather** → `/newbot` → put the token in `.env` as
-   `TELEGRAM_BOT_TOKEN`.
-2. Message **@userinfobot** for your numeric id → `TELEGRAM_ALLOWED_USER_ID`.
-   The bot ignores everyone else.
-
-### Judge backend
-
-Default is Gemini (`GEMINI_API_KEY`). Claude: `LLM_BACKEND=claude` plus
-`ANTHROPIC_API_KEY` and `pip install -r requirements-claude.txt`. Or
-`LLM_BACKEND=gateway` against a running ai-gateway (`LLM_GATEWAY_URL`)
-so this process holds no provider key.
-
-`DEFAULT_APP=generic` unless you change it.
-
-## Run it
+Judge existing screenshots in their top-to-bottom profile order:
 
 ```
-.venv/bin/python bot.py
+.venv/bin/python judge.py shots/profile/01.png shots/profile/02.png
+.venv/bin/python judge.py --app like_comment shots/profile/*.png
 ```
 
-Long-polling — no public port. `/start`, then send a profile. `/app generic`
-before an album if the shots aren't Generic.
-
-Optional Linux/KWin window grab (not required):
+On KDE/Wayland with Waydroid open to a profile, capture and judge it in one
+step:
 
 ```
-.venv/bin/python grab.py --manual --app generic
+.venv/bin/python grab.py --app generic
 ```
 
-That captures the focused window. It never likes or types.
+`grab.py --manual` gives you a countdown to focus the window and scroll it
+yourself. Both modes only read screenshots and use scroll gestures; neither
+likes, skips, or sends text.
 
-## MCP
+Profile formats are `generic` (the default), `like_comment`,
+`match_then_message`, `she_opens`, and `essays`. Use the format that describes
+the interaction shape, not a product name.
 
-```
-.venv/bin/pip install -r requirements-mcp.txt
-```
+## Agent skill
 
-```yaml
-mcp_servers:
-  dating:
-    command: /ABSOLUTE/PATH/TO/dating-copilot/.venv/bin/python
-    args: ["-m", "dating_mcp"]
-```
+The repository includes a `/judge` skill at `.claude/skills/judge/SKILL.md`.
+With screenshots, invoke `/judge <path> ...`; with Waydroid already open,
+invoke `/judge` and ask for a capture. The skill calls the local commands
+above directly, so it does not require a chat bot or an external bridge.
 
-| Tool | Maps to |
-|---|---|
-| `judge_profile(image_paths, app="generic")` | screenshots → verdict + drafts |
-| `record_outcome` / `record_sent_message` / `record_match_result` | close the loop |
-| `add_about_note` / `list_about_notes` / `forget_about_note` | `/about` |
-| `log_week` / `weekly_history` / `funnel_report` | `/week` / `/history` / `/report` |
+## Optional MCP interface
+
+`dating_mcp.py` exposes the same local judge engine to an MCP client. Its
+tools include `judge_profile`, `record_outcome`, `record_sent_message`, and
+reporting and identity helpers. `mcp` is installed with the standard
+requirements.
 
 ## Privacy
 
-`context.md`, `*.db`, and `.env` are gitignored. Her photos, your identity
-doc, and every message you've sent stay local. Images are sent to whichever
-judge backend you configured for the single API call that judges them, and
-nowhere else.
+`context.md`, `*.db`, and screenshots are gitignored. Images are sent only to
+the configured model backend for each judgment; the local files and history
+stay on your machine.
 
 ## License
 
-MIT. See [CONTRIBUTING.md](CONTRIBUTING.md) if you want to add an app
-profile (`apps/<slug>.md`) — not an account client. Opener research:
-[docs/research.md](docs/research.md).
+MIT. See [CONTRIBUTING.md](CONTRIBUTING.md) for profile-format guidance.

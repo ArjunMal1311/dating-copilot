@@ -1,14 +1,13 @@
 """Burst-capture a dating-app profile off the emulator/Waydroid window, then judge it.
 
-Optional Linux/KWin helper — not the happy path (that's Telegram or MCP
-with screenshots you already have). Some apps set FLAG_SECURE, so
+Linux/KWin helper for direct Waydroid capture. Some apps set FLAG_SECURE, so
 Android-side capture returns black. Capturing at the compositor instead —
 `spectacle -a` asks KWin for the active window's pixels.
 
 Default (auto) mode: KWin focuses the Waydroid window, then adb scrolls
-the focused app one screenful at a time. Pass --app so auto-scroll can
-find the Android package. adb never likes, skips or types. --manual grabs
-whatever window you focus.
+the focused app one screenful at a time. adb never likes, skips or types.
+--manual grabs whatever window you focus. Pass --app for the judge's
+profile format (not a product name).
 
     .venv/bin/python grab.py              # auto: focus, scroll, capture, judge
     .venv/bin/python grab.py --manual     # old way: you click in and scroll
@@ -172,16 +171,20 @@ def _adb(serial: str, *args: str) -> str:
                           text=True, timeout=15).stdout
 
 
-def _app_frame(serial: str, package: str) -> tuple[int, int, int, int]:
-    """The app's window rect (left, top, right, bottom) in Android coordinates.
-    Waydroid runs it as a freeform window, so it isn't the whole display."""
+def _focused_frame(serial: str) -> tuple[int, int, int, int]:
+    """Foreground window rect (left, top, right, bottom) in Android coords."""
     dump = _adb(serial, "dumpsys", "window", "windows")
-    block = dump.split(f"{package}/", 1)
-    if len(block) < 2:
+    pkg = re.search(r"mCurrentFocus=Window\{[^ ]+ [^ ]+ ([^/]+)/", dump)
+    if pkg is None:
+        pkg = re.search(r"mFocusedApp=AppWindowToken\{[^}]* ([^\s/]+)/", dump)
+    if pkg is None:
         raise SystemExit(
-            f"{package} isn't open in Waydroid. Open a profile, then retry "
-            f"(or use --manual to grab the focused window)."
+            "couldn't find the focused window. Open a profile, then retry "
+            "(or use --manual to grab whatever window you click)."
         )
+    block = dump.split(f"{pkg.group(1)}/", 1)
+    if len(block) < 2:
+        raise SystemExit("couldn't find the focused window bounds via dumpsys.")
     m = re.search(r"frame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]", block[1])
     if not m:
         raise SystemExit("couldn't find the app window bounds via dumpsys.")
@@ -203,11 +206,11 @@ def _scroll(serial: str, frame: tuple[int, int, int, int]) -> None:
     _adb(serial, "input", "swipe", str(x), str(y_from), str(x), str(y_to), "600")
 
 
-def auto_burst(out_dir: Path, settle: float, package: str) -> list[Path]:
+def auto_burst(out_dir: Path, settle: float) -> list[Path]:
     """Focus Waydroid, then capture, scroll, capture... until a scroll no
     longer changes the screen (bottom of the profile) or the frame cap."""
     serial = _adb_serial()
-    frame = _app_frame(serial, package)
+    frame = _focused_frame(serial)
     _focus_waydroid()
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -290,7 +293,7 @@ def main() -> None:
     ap.add_argument(
         "--app",
         default=config.DEFAULT_APP,
-        help="dating app slug (generic/generic/generic/generic/generic)",
+        help="profile format (generic/like_comment/match_then_message/she_opens/essays)",
     )
     args = ap.parse_args()
     slug = app_catalog.normalize(args.app)
@@ -299,13 +302,7 @@ def main() -> None:
     if args.manual:
         frames = burst(args.seconds, args.interval, out, args.lead)
     else:
-        package = app_catalog.PACKAGES.get(slug)
-        if not package:
-            raise SystemExit(
-                f"auto-scroll has no Android package for {slug!r}; "
-                f"use --manual or pick --app generic|generic|generic|generic"
-            )
-        frames = auto_burst(out, args.settle, package)
+        frames = auto_burst(out, args.settle)
 
     if not frames:
         print("nothing captured", file=sys.stderr)

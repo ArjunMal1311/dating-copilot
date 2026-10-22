@@ -4,7 +4,7 @@ Three layers, all explicit — nothing here is inferred from anything you
 didn't directly say or send:
 
 1. Seed identity — context.md, written once, thorough.
-2. Deltas since — /about notes, appended over time.
+2. Deltas since — saved identity notes, appended over time.
 3. Voice — your own confirmed-sent messages, sampled as few-shot examples.
 """
 

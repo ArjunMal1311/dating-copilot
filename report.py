@@ -1,5 +1,4 @@
-"""Deterministic funnel diagnosis — shared by /report (handlers/week.py) and
-the funnel_report MCP tool (dating_mcp.py).
+"""Deterministic funnel diagnosis for the local record and MCP tool.
 
 Rule-based, not LLM-based, on purpose: the same numbers must always produce
 the same read, and week-to-week noise is bigger than most real effects.
@@ -52,7 +51,7 @@ def diagnose() -> str:
 
     if stats["weeks_counted"] < 2:
         lines.append(
-            "not enough weekly data yet — log /week for at least 2 weeks "
+            "not enough weekly data yet — log at least 2 weeks "
             "before this diagnosis means anything. week-to-week noise is "
             "bigger than most real effects."
         )

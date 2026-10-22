@@ -1,6 +1,6 @@
 """Shared shape both LLM backends produce.
 
-Kept intentionally small — just the fields the rest of the bot reads.
+Kept intentionally small — just the fields the local tools read.
 Each backend (llm/gemini.py, llm/claude.py) is responsible for getting its
 provider's response into exactly this shape.
 """

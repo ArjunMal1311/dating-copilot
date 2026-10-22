@@ -1,10 +1,9 @@
 # Research behind the opener rules
 
-Merged from public threads on photos, prompts/openers, and whole-profile
-strategy (r/OnlineDating, r/datingoverthirty, r/dating_advice, r/genericapp,
-r/Generic, r/FemaleDatingStrategy). Sentiment is women's, paraphrased. App
-product details (like-comments, who messages first) live in `apps/*.md` —
-this file is the shared quality bar.
+Merged from public dating-forum threads on photos, prompts/openers, and
+whole-profile strategy. Sentiment is women's, paraphrased. Product
+details (like-comments, who messages first) live in `apps/*.md` — this
+file is the shared quality bar.
 
 The loudest signal: **a low-effort profile is read as a promise of low
 effort in a relationship.**
@@ -49,6 +48,5 @@ a category isn't appreciation.
 self-deprecation · posed shirtless with no activity · money/hustle flex ·
 face hidden in most photos · AI-written prompts or filtered photos.
 
-The opener rules in `memory.py` enforce the drafting half of this. App
-mechanics (Generic like-comment vs Generic match-then-message) are in
-`apps/`.
+The opener rules in `memory.py` enforce the drafting half of this. Format
+mechanics (like-comment vs match-then-message) are in `apps/`.

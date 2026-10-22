@@ -4,17 +4,17 @@ This is a **screenshot-in, draft-out copilot**. It never logs into a dating
 app, never swipes, and never sends a message. Pull requests that add account
 clients, unofficial APIs, or swipe/send automation will be closed.
 
-## Adding an app
+## Adding a profile format
 
-1. Copy `apps/generic.md` to `apps/<slug>.md`.
+1. Copy `apps/generic.md` to `apps/<slug>.md`. Use a format name
+   (`like_comment`, `essays`), never a product name.
 2. Fill in: how likes/messages work, what's on a profile, what the hook
    (`target_prompt`) means, screenshot hints.
 3. Add the slug to `KNOWN_APPS` and `DISPLAY_NAMES` in `apps.py`.
-4. If you have a public Android package name for optional Waydroid
-   auto-scroll, add it to `PACKAGES`. Capture is optional; the happy path
-   is still dropping screenshots on Telegram or MCP.
 
-Do not add per-app Python packages or plugins. One judge, one catalog.
+Do not add per-app Python packages, plugins, or product names. One judge,
+one catalog. Capture is optional; the normal path is `judge.py` for existing
+screenshots or `grab.py` for Waydroid.
 
 ## Voice and identity
 

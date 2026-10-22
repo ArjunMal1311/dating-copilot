@@ -1,13 +1,11 @@
-"""MCP server exposing dating-copilot's judge, voice bank and funnel as tools.
+"""Local judge engine with an optional MCP server interface.
 
-Run this INSTEAD of bot.py when you want an existing MCP client (e.g. Hermes
-Agent, already connected to Telegram/Discord/Slack) to drive the judge —
-rather than dating-copilot running its own Telegram bot. bot.py and handlers/
-are unused in this mode; db.py, memory.py, llm/, report.py and context.md are
-shared verbatim, so a decision judged here shows up in the same dating.db and
-/report as one judged by the standalone bot.
+Use ``judge.py`` for profile screenshots or ``grab.py`` for a Waydroid
+capture. This module exposes the same functions to an MCP client when one is
+useful. Decisions, voice examples, and reports are stored locally in
+``dating.db``.
 
-Register in the client. For Hermes, add to ~/.hermes/config.yaml:
+To register the optional MCP interface, add:
 
     mcp_servers:
       dating:
@@ -16,12 +14,9 @@ Register in the client. For Hermes, add to ~/.hermes/config.yaml:
         env:
           GEMINI_API_KEY: "your-key"      # or put it in dating-copilot/.env
 
-then: systemctl --user restart hermes-gateway
-
 Env needed (.env or the mcp_servers env: block): GEMINI_API_KEY,
 and optionally GEMINI_MODEL / LLM_BACKEND / USER_NAME / CONTEXT_MD_PATH /
-DEFAULT_APP / VOICE_SAMPLE_COUNT / CONTEXT_NOTE_LIMIT. Telegram vars are NOT
-used here.
+DEFAULT_APP / VOICE_SAMPLE_COUNT / CONTEXT_NOTE_LIMIT.
 """
 
 from __future__ import annotations
@@ -55,8 +50,7 @@ def _resolve(path: str) -> Path:
 
 
 def _downscale(fp: Path) -> bytes:
-    """Long-edge downscale to JPEG — identical to handlers/photos.py so the
-    judge sees the same thing either way."""
+    """Downscale an image to JPEG before sending it to the judge."""
     with Image.open(fp) as img:
         img = img.convert("RGB")
         img.thumbnail((config.MAX_EDGE, config.MAX_EDGE), Image.LANCZOS)
@@ -73,7 +67,8 @@ def judge_profile(image_paths: list[str], app: str = "generic") -> dict:
     screenshots — photos and any text (prompts, bio, essays) — in the order
     they appear top-to-bottom in the app. 1 to 12 images, all one profile.
 
-    app: generic | generic | generic | generic | generic (default generic).
+    app: generic | like_comment | match_then_message | she_opens | essays
+    (default generic). Format of the profile, not a product name.
 
     Returns a dict:
       decision_id     int
@@ -158,7 +153,7 @@ def judge_profile(image_paths: list[str], app: str = "generic") -> dict:
 
 @mcp.tool()
 def record_outcome(decision_id: int, action: str) -> str:
-    """Record what the user ACTUALLY did in the dating app for a judged
+    """Record what the user ACTUALLY did for a judged
     profile, so tracked counts match reality instead of the recommendation.
 
     action: "liked" or "skipped".
@@ -226,7 +221,7 @@ def record_match_result(
 
 @mcp.tool()
 def add_about_note(text: str) -> str:
-    """Add a fact about the user to persistent identity memory (like /about)."""
+    """Add a fact about the user to persistent identity memory."""
     text = text.strip()
     if not text:
         raise ValueError("text is empty.")
@@ -236,7 +231,7 @@ def add_about_note(text: str) -> str:
 
 @mcp.tool()
 def list_about_notes() -> list[dict]:
-    """Active identity notes, most recent first (like /about list)."""
+    """Return active identity notes, most recent first."""
     return [
         {"id": r["id"], "date": r["ts"][:10], "text": r["text"]}
         for r in db.list_active_notes(config.CONTEXT_NOTE_LIMIT)
@@ -245,7 +240,7 @@ def list_about_notes() -> list[dict]:
 
 @mcp.tool()
 def forget_about_note(note_id: int) -> str:
-    """Retire a stale identity note by id — soft delete (like /about forget)."""
+    """Retire a stale identity note by id."""
     return "retired." if db.deactivate_note(note_id) else "no active note with that id."
 
 
@@ -255,7 +250,7 @@ def log_week(
     matches: int | None = None,
     dates: int | None = None,
 ) -> str:
-    """Log this week's funnel numbers (like /week). Any subset."""
+    """Log this week's funnel numbers. Any subset."""
     if likes is None and matches is None and dates is None:
         raise ValueError("pass at least one of likes / matches / dates.")
     week_start = db.current_week_start()
@@ -286,7 +281,7 @@ def weekly_history() -> list[dict]:
 
 @mcp.tool()
 def funnel_report() -> str:
-    """Deterministic funnel diagnosis — which stage is leaking (like /report)."""
+    """Deterministic funnel diagnosis — which stage is leaking."""
     return report.diagnose()
 
 
