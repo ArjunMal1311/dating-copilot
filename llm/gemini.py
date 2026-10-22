@@ -14,7 +14,7 @@ from google import genai
 from google.genai import types
 
 import config
-from llm.base import CORE_FIELDS, DECISION_SCHEMA, Decision
+from llm.base import CORE_FIELDS, DECISION_SCHEMA, Decision, profile_user_text
 
 # Dating-profile photos (swimwear, low light, close-ups) commonly trip
 # Gemini's default safety thresholds even when nothing is actually explicit.
@@ -36,17 +36,14 @@ def _client() -> genai.Client:
     return genai.Client(api_key=config.GEMINI_API_KEY)
 
 
-def judge(images: list[bytes], system_prompt: str) -> Decision:
+def judge(images: list[bytes], system_prompt: str, app: str = "generic") -> Decision:
     """images: JPEG bytes, top-to-bottom profile order. Returns a Decision."""
     client = _client()
 
     contents = [
         types.Part.from_bytes(data=img, mime_type="image/jpeg") for img in images
     ]
-    contents.append(
-        f"Above are {len(images)} screenshots of one Generic profile, in "
-        f"order. Decide whether to like or skip, per the instructions."
-    )
+    contents.append(profile_user_text(len(images), app))
 
     response = client.models.generate_content(
         model=config.GEMINI_MODEL,

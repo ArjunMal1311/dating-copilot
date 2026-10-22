@@ -13,8 +13,9 @@ import logging
 
 from PIL import Image
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes, MessageHandler, filters
+from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
 
+import apps as app_catalog
 import config
 import db
 import memory
@@ -35,9 +36,39 @@ def _downscale(raw: bytes) -> bytes:
         return buf.getvalue()
 
 
+def _current_app(context: ContextTypes.DEFAULT_TYPE) -> str:
+    stored = (context.user_data or {}).get("app")
+    return app_catalog.normalize(stored or config.DEFAULT_APP)
+
+
+async def app_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = context.args or []
+    if not args:
+        current = _current_app(context)
+        known = ", ".join(app_catalog.KNOWN_APPS)
+        await update.message.reply_text(
+            f"judging as {app_catalog.display_name(current)} ({current}).\n"
+            f"/app <name> — {known}"
+        )
+        return
+    try:
+        slug = app_catalog.normalize(args[0])
+    except ValueError as e:
+        await update.message.reply_text(str(e))
+        return
+    context.user_data["app"] = slug
+    await update.message.reply_text(
+        f"ok — next profiles judged as {app_catalog.display_name(slug)}"
+    )
+
+
 async def _run_judge_and_reply(chat_id: int, file_ids: list[str],
                                 context: ContextTypes.DEFAULT_TYPE) -> None:
-    status = await context.bot.send_message(chat_id, f"judging {len(file_ids)} photos...")
+    slug = _current_app(context)
+    status = await context.bot.send_message(
+        chat_id,
+        f"judging {len(file_ids)} photos as {app_catalog.display_name(slug)}...",
+    )
 
     images = []
     for file_id in file_ids:
@@ -46,10 +77,10 @@ async def _run_judge_and_reply(chat_id: int, file_ids: list[str],
         images.append(_downscale(raw))
 
     judge = load_backend().judge
-    system_prompt = memory.build_system_prompt()
+    system_prompt = memory.build_system_prompt(slug)
 
     try:
-        decision = judge(images, system_prompt)
+        decision = judge(images, system_prompt, app=slug)
     except Exception as e:
         logger.exception("judge failed")
         await status.edit_text(f"judge failed: {e}")
@@ -63,6 +94,7 @@ async def _run_judge_and_reply(chat_id: int, file_ids: list[str],
         draft_message=decision.draft_message,
         draft_lane=decision.draft_lane,
         alternatives=alternatives,
+        app=slug,
     )
 
     if decision.decision == "like":
@@ -122,4 +154,5 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def register(app, allowed_user_filter) -> None:
+    app.add_handler(CommandHandler("app", app_cmd, filters=allowed_user_filter))
     app.add_handler(MessageHandler(filters.PHOTO & allowed_user_filter, on_photo))

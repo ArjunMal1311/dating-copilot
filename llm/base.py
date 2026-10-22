@@ -33,6 +33,17 @@ CORE_FIELDS = ("decision", "reasoning", "target_prompt", "draft_message")
 MAX_ALTERNATIVES = 2
 
 
+def profile_user_text(n: int, app: str = "generic") -> str:
+    """User-turn text sent with the screenshots. `target_prompt` is the hook."""
+    from apps import display_name
+
+    label = display_name(app)
+    return (
+        f"Above are {n} screenshots of one {label} profile, in "
+        f"order. Decide whether to like or skip, per the instructions."
+    )
+
+
 @dataclass
 class Decision:
     decision: str          # "like" | "skip"

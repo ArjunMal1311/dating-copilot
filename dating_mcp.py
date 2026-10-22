@@ -1,26 +1,27 @@
-"""MCP server exposing generic-bot's judge, voice bank and funnel as tools.
+"""MCP server exposing dating-copilot's judge, voice bank and funnel as tools.
 
 Run this INSTEAD of bot.py when you want an existing MCP client (e.g. Hermes
 Agent, already connected to Telegram/Discord/Slack) to drive the judge —
-rather than generic-bot running its own Telegram bot. bot.py and handlers/ are
-unused in this mode; db.py, memory.py, llm/, report.py and context.md are
-shared verbatim, so a decision judged here shows up in the same generic.db and
+rather than dating-copilot running its own Telegram bot. bot.py and handlers/
+are unused in this mode; db.py, memory.py, llm/, report.py and context.md are
+shared verbatim, so a decision judged here shows up in the same dating.db and
 /report as one judged by the standalone bot.
 
 Register in the client. For Hermes, add to ~/.hermes/config.yaml:
 
     mcp_servers:
-      generic:
-        command: /ABSOLUTE/PATH/TO/generic-bot/.venv/bin/python
-        args: ["-m", "generic_mcp"]
+      dating:
+        command: /ABSOLUTE/PATH/TO/dating-copilot/.venv/bin/python
+        args: ["-m", "dating_mcp"]
         env:
-          GEMINI_API_KEY: "your-key"      # or put it in generic-bot/.env
+          GEMINI_API_KEY: "your-key"      # or put it in dating-copilot/.env
 
 then: systemctl --user restart hermes-gateway
 
-Env needed (generic-bot/.env or the mcp_servers env: block): GEMINI_API_KEY,
+Env needed (.env or the mcp_servers env: block): GEMINI_API_KEY,
 and optionally GEMINI_MODEL / LLM_BACKEND / USER_NAME / CONTEXT_MD_PATH /
-VOICE_SAMPLE_COUNT / CONTEXT_NOTE_LIMIT. The Telegram vars are NOT used here.
+DEFAULT_APP / VOICE_SAMPLE_COUNT / CONTEXT_NOTE_LIMIT. Telegram vars are NOT
+used here.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from urllib.parse import unquote, urlparse
 from mcp.server.fastmcp import FastMCP
 from PIL import Image
 
+import apps as app_catalog
 import config
 import db
 import memory
@@ -39,10 +41,8 @@ import report
 from llm import load_backend
 from llm.base import LANES
 
-mcp = FastMCP("generic")
+mcp = FastMCP("dating")
 
-# Same ceiling the standalone album handler works within — a Generic profile is
-# at most a handful of screenshots.
 _MAX_IMAGES = 12
 
 
@@ -66,27 +66,29 @@ def _downscale(fp: Path) -> bytes:
 
 
 @mcp.tool()
-def judge_profile(image_paths: list[str]) -> dict:
-    """Judge ONE Generic profile from its screenshot files.
+def judge_profile(image_paths: list[str], app: str = "generic") -> dict:
+    """Judge ONE dating-app profile from its screenshot files.
 
     image_paths: absolute paths (or file:// URLs) to the profile's
-    screenshots — her photos and prompt answers — in the order they appear
-    top-to-bottom in the app. 1 to 12 images, all one profile.
+    screenshots — photos and any text (prompts, bio, essays) — in the order
+    they appear top-to-bottom in the app. 1 to 12 images, all one profile.
+
+    app: generic | generic | generic | generic | generic (default generic).
 
     Returns a dict:
-      decision_id     int   — pass to record_outcome / record_sent_message
+      decision_id     int
       decision        str   — "like" or "skip"
-      reasoning       str   — one or two sentences, references a real detail
-      target_prompt   str   — which of her prompts to answer ("" if skip / no hook)
+      reasoning       str
+      target_prompt   str   — target / hook (prompt, bio line, photo, …)
       draft_message   str   — opener in the user's voice ("" if skip / no hook)
-      draft_lane      str   — which opener angle draft_message uses ("" if none)
-      alternatives    list  — up to 2 backups [{lane, target, message}], each
-                              a different angle; may be empty
+      draft_lane      str
+      alternatives    list
+      app             str
 
-    The decision is persisted immediately. After the user acts in Generic, call
-    record_outcome; if they liked and sent, also call record_sent_message
-    with the exact text they sent so it feeds the voice bank.
+    After the user acts in the app, call record_outcome; if they liked and
+    sent, also call record_sent_message with the exact text they sent.
     """
+    slug = app_catalog.normalize(app)
     if not image_paths:
         raise ValueError("image_paths is empty — pass the profile screenshots.")
     if len(image_paths) > _MAX_IMAGES:
@@ -102,12 +104,9 @@ def judge_profile(image_paths: list[str]) -> dict:
             raise ValueError(f"not a readable file: {fp}")
         images.append(_downscale(fp))
 
-    system_prompt = memory.build_system_prompt()
-    decision = load_backend().judge(images, system_prompt)
+    system_prompt = memory.build_system_prompt(slug)
+    decision = load_backend().judge(images, system_prompt, app=slug)
 
-    # The model doesn't reliably self-check a long rule list in one pass —
-    # give it one shot to fix anything mechanically checkable before this
-    # ever reaches the user.
     if decision.draft_message:
         issues = memory.check_draft(decision.draft_message)
         if issues:
@@ -121,14 +120,12 @@ def judge_profile(image_paths: list[str]) -> dict:
                 "keeping the same decision, reasoning and target_prompt. If "
                 "no clean draft is possible, use an empty string instead."
             )
-            retried = load_backend().judge(images, retry_prompt)
+            retried = load_backend().judge(images, retry_prompt, app=slug)
             if retried.draft_message or not decision.draft_message:
                 decision = retried
 
     alternatives = memory.drop_failing_alternatives(decision.alternatives)
 
-    # Last guard: a main draft that still copies a sent line never reaches
-    # him. Promote the first clean backup, or fall back to no draft.
     if decision.draft_message and memory.reused_line(decision.draft_message):
         if alternatives:
             promoted = alternatives.pop(0)
@@ -145,6 +142,7 @@ def judge_profile(image_paths: list[str]) -> dict:
         draft_message=decision.draft_message,
         draft_lane=decision.draft_lane,
         alternatives=alternatives,
+        app=slug,
     )
     return {
         "decision_id": decision_id,
@@ -154,13 +152,14 @@ def judge_profile(image_paths: list[str]) -> dict:
         "draft_message": decision.draft_message,
         "draft_lane": decision.draft_lane,
         "alternatives": alternatives,
+        "app": slug,
     }
 
 
 @mcp.tool()
 def record_outcome(decision_id: int, action: str) -> str:
-    """Record what the user ACTUALLY did in Generic for a judged profile, so
-    tracked counts match reality instead of the bot's recommendation.
+    """Record what the user ACTUALLY did in the dating app for a judged
+    profile, so tracked counts match reality instead of the recommendation.
 
     action: "liked" or "skipped".
     """
@@ -177,15 +176,13 @@ def record_outcome(decision_id: int, action: str) -> str:
 def record_sent_message(
     decision_id: int, final_text: str, was_edited: bool, lane: str | None = None
 ) -> str:
-    """Save the message the user ACTUALLY sent her — not the draft — into the
+    """Save the message the user ACTUALLY sent — not the draft — into the
     voice bank, where it becomes a few-shot example on future drafts.
 
     Call this only after the user liked and sent.
       final_text:  verbatim what they sent (the draft as-is, or their edit)
       was_edited:  False if they sent the draft unchanged, True if they changed it
-      lane:        optional opener angle of what was sent (a key of
-                   llm.base.LANES). Leave it out and it's inferred from
-                   whichever draft or backup the text is closest to.
+      lane:        optional opener angle (a key of llm.base.LANES).
 
     Implies the outcome was "liked" and sets it if not already recorded.
     """
@@ -212,12 +209,10 @@ def record_match_result(
     decision_id: int, matched: bool, got_reply: bool | None = None
 ) -> str:
     """Record what actually happened after a sent message — the real signal
-    for which draft shapes work, since a clean-looking draft that gets
-    ignored is worse evidence than a rough one that gets a reply.
+    for which draft shapes work.
 
     Call this once you know: matched=False as soon as you know she didn't
-    match; matched=True (with got_reply if known yet) once she does. Safe to
-    call again later with got_reply once that's known too.
+    match; matched=True (with got_reply if known yet) once she does.
     """
     row = db.get_decision(decision_id)
     if row is None:
@@ -231,8 +226,7 @@ def record_match_result(
 
 @mcp.tool()
 def add_about_note(text: str) -> str:
-    """Add a fact about the user to persistent identity memory (like /about
-    <text>). Folded into every future judge call."""
+    """Add a fact about the user to persistent identity memory (like /about)."""
     text = text.strip()
     if not text:
         raise ValueError("text is empty.")
@@ -261,8 +255,7 @@ def log_week(
     matches: int | None = None,
     dates: int | None = None,
 ) -> str:
-    """Log this week's funnel numbers (like /week). Any subset — pass only
-    what you have. Upserts the current (Monday-anchored) week."""
+    """Log this week's funnel numbers (like /week). Any subset."""
     if likes is None and matches is None and dates is None:
         raise ValueError("pass at least one of likes / matches / dates.")
     week_start = db.current_week_start()
@@ -293,15 +286,14 @@ def weekly_history() -> list[dict]:
 
 @mcp.tool()
 def funnel_report() -> str:
-    """Deterministic funnel diagnosis — which stage is leaking (like /report).
-    Rule-based; the same numbers always produce the same read."""
+    """Deterministic funnel diagnosis — which stage is leaking (like /report)."""
     return report.diagnose()
 
 
 def main() -> None:
-    config.check_context_file()  # warn (not fail) if context.md is missing
+    config.check_context_file()
     db.init_db()
-    mcp.run()  # stdio transport
+    mcp.run()
 
 
 if __name__ == "__main__":

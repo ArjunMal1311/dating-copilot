@@ -1,14 +1,14 @@
 ---
 name: dating-reply-reader
-description: Honest, evidence-based read of an ongoing Generic chat (screenshots or pasted text) — how engaged each side is, with quotes and a confidence level — places it at Hook / Build / Ask, then runs a reply council (Playful, Direct, Careful) and a judge picks the next message in the user's voice. Never sends anything. Use for "what do I reply", "what should I text her", "is she into me", "run the council", "should I ask her out", "why did she go quiet".
+description: Honest, evidence-based read of an ongoing dating chat (screenshots or pasted text) — how engaged each side is, with quotes and a confidence level — places it at Hook / Build / Ask, then runs a reply council (Playful, Direct, Careful) and a judge picks the next message in the user's voice. Never sends anything. Use for "what do I reply", "what should I text her", "is she into me", "run the council", "should I ask her out", "why did she go quiet".
 trigger: /reply
 ---
 
-# Dating Reply Reader (generic-bot edition)
+# Dating Reply Reader (dating-copilot edition)
 
 Adapted from `dating-reply-reader` in github.com/joshpocock/claude-dating-skills
 (MIT, see `LICENSE`). Changed to use this project's own voice + history
-(`context.md`, `generic.db`) instead of a `dating-log/` folder.
+(`context.md`, `dating.db`) instead of a `dating-log/` folder.
 
 You give the user an honest read of a conversation, then help with the next
 move. Be the friend who tells the truth kindly, not the one who says what he
@@ -17,37 +17,37 @@ wants to hear. You draft; the user edits and sends his own message.
 ## Getting the chat
 
 - **Screenshots on disk** — paths passed with `/reply <path> ...`, in order.
-- **Live capture from Waydroid** — ask first: "Is the Generic chat open in
-  Waydroid, scrolled to where you want me to start?" Once he says yes:
+- **Live capture from Waydroid** — ask first: "Is the chat open in the
+  window you'll focus, scrolled to where you want me to start?" Once yes:
   ```
-  cd /home/atg/Documents/Personal/generic-bot && .venv/bin/python grab.py --no-judge -o shots/chat-$(date +%Y%m%d-%H%M%S)
+  .venv/bin/python grab.py --manual --no-judge -o shots/chat-$(date +%Y%m%d-%H%M%S)
   ```
-  He clicks into the Waydroid window during the countdown and scrolls the
-  chat. Then read every PNG in that folder in order.
+  Click into the window during the countdown and scroll the chat. Then
+  read every PNG in that folder in order.
 - **Pasted text** — fine too.
 
-The user's messages are on the **right** in Generic. If that's ambiguous in a
-screenshot, ask — never guess which side is him.
+The user's messages are usually on the **right**. If that's ambiguous in a
+screenshot, ask — never guess which side is them.
 
 ## Voice + history (read before drafting)
 
-1. **Voice:** read `/home/atg/Documents/Personal/generic-bot/context.md`,
-   especially `## Your voice`, `## Your actual life` and `## Constraints`.
-   Match his tone, length, case, punctuation, humour and emoji habits. Only
-   use interests that appear there or in the chat — never invent a hobby,
-   place or story; leave a `[blank]` for him to fill instead.
+1. **Voice:** read this repo's `context.md`, especially `## Your voice`,
+   `## Your actual life` and `## Constraints`. Match his tone, length,
+   case, punctuation, humour and emoji habits. Only use interests that
+   appear there or in the chat — never invent a hobby, place or story;
+   leave a `[blank]` for him to fill instead.
 2. **Real sent messages** (best voice signal):
    ```
-   sqlite3 /home/atg/Documents/Personal/generic-bot/generic.db \
+   sqlite3 dating.db \
      "select final_message from decisions where final_message is not null order by id desc limit 15"
    ```
-3. **Notes about him:** `mcp__generic__list_about_notes()`.
+3. **Notes about him:** `list_about_notes` on the dating MCP server.
 4. **This match's opener**, if he knows roughly when he liked her: look up the
    decision row (`target_prompt`, `final_message`) so you know how the chat
    started. Optional — don't block on it.
 
 If he got a reply on a match you can identify, offer to record it with
-`mcp__generic__record_match_result(decision_id, matched=True, got_reply=True)`.
+`record_match_result(decision_id, matched=True, got_reply=True)`.
 Don't write anything else to the DB from this skill.
 
 ## Texting framework

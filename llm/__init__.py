@@ -1,9 +1,8 @@
 """Backend-agnostic judge loader.
 
 llm/gemini.py (default), llm/claude.py (swap-in) and llm/gateway.py (HTTP to a
-running ai-gateway) each expose judge(images, system_prompt) -> Decision. This
-module resolves config.LLM_BACKEND to the right one, same pattern as
-generic-auto's judge_common.load_backend().
+running ai-gateway) each expose judge(images, system_prompt, app=...) -> Decision.
+This module resolves config.LLM_BACKEND to the right one.
 """
 
 from __future__ import annotations

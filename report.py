@@ -1,5 +1,5 @@
 """Deterministic funnel diagnosis — shared by /report (handlers/week.py) and
-the funnel_report MCP tool (generic_mcp.py).
+the funnel_report MCP tool (dating_mcp.py).
 
 Rule-based, not LLM-based, on purpose: the same numbers must always produce
 the same read, and week-to-week noise is bigger than most real effects.
@@ -83,6 +83,14 @@ def diagnose() -> str:
             "funnel looks like it's moving at every stage. keep logging — "
             "the interesting signal shows up over several more weeks."
         )
+
+    by_app = db.count_decisions_by_app()
+    if len(by_app) > 1:
+        bits = [
+            f"{r['app']}: {r['judged']} judged, {r['liked'] or 0} liked"
+            for r in by_app
+        ]
+        lines += ["", "by app: " + "; ".join(bits)]
 
     breakdown = lane_breakdown()
     if breakdown:

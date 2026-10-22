@@ -1,4 +1,4 @@
-"""SQLite storage for generic-bot.
+"""SQLite storage for dating-copilot.
 
 Three tables, no ORM — this is a single-user personal bot, not a service.
 A fresh connection is opened per call; at this volume (a handful of writes
@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS decisions (
     was_edited      INTEGER,            -- NULL until confirmed; 0 or 1 after
     user_action     TEXT,               -- NULL | 'liked' | 'skipped'
     matched         INTEGER,            -- NULL unknown; 0 or 1 once she's had a chance to respond
-    got_reply       INTEGER             -- NULL unknown; 0 or 1 once matched
+    got_reply       INTEGER,            -- NULL unknown; 0 or 1 once matched
+    app             TEXT NOT NULL DEFAULT 'generic'
 );
 
 CREATE TABLE IF NOT EXISTS context_notes (
@@ -73,9 +74,13 @@ def init_db() -> None:
             ("draft_lane", "TEXT"),
             ("alternatives", "TEXT"),
             ("sent_lane", "TEXT"),
+            ("app", "TEXT"),
         ):
             if col not in existing:
                 conn.execute(f"ALTER TABLE decisions ADD COLUMN {col} {typ}")
+        conn.execute(
+            "UPDATE decisions SET app = 'generic' WHERE app IS NULL OR app = ''"
+        )
 
 
 def _now() -> str:
@@ -91,15 +96,17 @@ def insert_decision(
     draft_message: str,
     draft_lane: str = "",
     alternatives: list[dict] | None = None,
+    app: str = "generic",
 ) -> int:
     with _conn() as conn:
         cur = conn.execute(
             "INSERT INTO decisions (ts, decision, reasoning, target_prompt, "
-            "draft_message, draft_lane, alternatives) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "draft_message, draft_lane, alternatives, app) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 _now(), decision, reasoning, target_prompt, draft_message,
                 draft_lane or None, json.dumps(alternatives or []),
+                app or "generic",
             ),
         )
         return cur.lastrowid
@@ -246,6 +253,17 @@ def count_decisions() -> dict[str, int]:
         "likes_confirmed": liked_confirmed,
         "skips_confirmed": skipped_confirmed,
     }
+
+
+def count_decisions_by_app() -> list[sqlite3.Row]:
+    """Judged / liked counts per dating app, for /report."""
+    with _conn() as conn:
+        return conn.execute(
+            "SELECT COALESCE(app, 'generic') AS app, COUNT(*) AS judged, "
+            "SUM(user_action = 'liked') AS liked "
+            "FROM decisions GROUP BY COALESCE(app, 'generic') "
+            "ORDER BY judged DESC"
+        ).fetchall()
 
 
 # ---------- context_notes ----------

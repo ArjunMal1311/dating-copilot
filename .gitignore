@@ -5,12 +5,13 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.claude-flow/
 
-# Personal + captured data. Never commit these: context.md is Arjun's identity
-# doc, generic.db holds judgements about real people, and shots/ is screenshots
-# of their profiles.
+# Personal + captured data. Never commit these: context.md is the operator's
+# identity doc, *.db holds judgements about real people, and shots/ is
+# screenshots of their profiles.
 context.md
-generic.db
+*.db
 shots/
 *.png
 *.jpg

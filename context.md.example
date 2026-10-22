@@ -1,22 +1,24 @@
 # Context
 
-Copy this to `context.md` and fill it in — or point `CONTEXT_MD_PATH` in your
-`.env` at an already-filled copy (e.g. `generic-lab/context.md`, if you built
-that first) so you're not maintaining the same document twice.
+Copy this to `context.md` and fill it in — or point `CONTEXT_MD_PATH` in
+your `.env` at another copy so you aren't maintaining the same document
+twice.
 
-This is read on every single judge call. It's the "who Arjun is" the bot
-uses to decide LIKE/SKIP and to write in your voice. Same file, same rules,
-as generic-lab — see that project's `context.md` for the full template if you
-want the long-form version. Short version below.
+This is read on every judge call. It's who you are, what you want, and
+how you actually type. Thin file → generic drafts.
+
+The **Your voice** section below is a *sample of how to write that
+section*, not a voice you should copy. Replace it with how *you* text.
 
 ---
 
 ## Basics
-- **Age:**
-- **City:**
+- **Age:** 28
+- **City:** Austin
 
 ## What you're looking for
-_Specific, not "something serious."_
+_Specific, not "something serious." Example: someone local who actually
+wants to meet in the next couple of weeks, not a pen pal._
 
 ## Who you're trying to attract
 _Describe her, not a checklist of traits._
@@ -26,8 +28,19 @@ _Specific things you do. This is the raw material for openers — the model
 can only reference what's here._
 
 ## Your voice
-_Paste 3-4 real messages you've sent friends, uncleaned. Used alongside the
-sent-message voice bank the bot builds automatically over time._
+Paste 3–4 real messages you've sent friends, uncleaned. Then describe how
+you type, in enough detail that a stranger could imitate it. Example of
+the *kind* of notes to write (rewrite these as yours):
+
+- all lowercase, including "i"
+- no full stop at the end of a one-liner; the question mark is optional
+- fragments are fine; drop the leading "i"
+- start mid-thought, as if the conversation already existed
+- at most one stance word (honestly, tbh, ngl, ok but, wait, actually)
+- humour by understatement, delivered flat
+
+If you live in a particular city or age band, say so here — the judge
+should not invent a demographic voice that isn't in this file.
 
 ## Constraints
 _Anything off the table._

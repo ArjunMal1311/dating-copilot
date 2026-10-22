@@ -1,6 +1,6 @@
 """ai-gateway backend — judge over HTTP instead of a local provider key.
 
-Set LLM_BACKEND=gateway. generic-bot then holds no Gemini/Anthropic key at all:
+Set LLM_BACKEND=gateway. dating-copilot then holds no Gemini/Anthropic key at all:
 it POSTs the profile to a running ai-gateway
 (github.com/<you>/gemini — "Standalone LLM gateway microservice: multi-key
 pool, rate limiting, per-key cooldown/backoff"), which owns the key pool and
@@ -13,7 +13,7 @@ Start the gateway first (from its own checkout):
     # or, with a local Redis already running:
     uvicorn app.main:app --port 8080
 
-then point generic-bot at it (.env):
+then point dating-copilot at it (.env):
 
     LLM_BACKEND=gateway
     LLM_GATEWAY_URL=http://localhost:8080     # default; override if remote
@@ -40,7 +40,7 @@ import re
 import httpx
 
 import config
-from llm.base import CORE_FIELDS, LANES, Decision
+from llm.base import CORE_FIELDS, LANES, Decision, profile_user_text
 
 # Spelled out because the gateway can't enforce the schema for us (no
 # response_json_schema on its generate call).
@@ -69,7 +69,7 @@ def _endpoint() -> str:
     return f"{config.LLM_GATEWAY_URL}/v1/generate"
 
 
-def judge(images: list[bytes], system_prompt: str) -> Decision:
+def judge(images: list[bytes], system_prompt: str, app: str = "generic") -> Decision:
     """images: JPEG bytes, top-to-bottom profile order. Returns a Decision."""
     parts: list = [f"{system_prompt}\n\n{_JSON_INSTRUCTION}"]
     parts.extend(
@@ -80,9 +80,8 @@ def judge(images: list[bytes], system_prompt: str) -> Decision:
         for img in images
     )
     parts.append(
-        f"Above are {len(images)} screenshots of one Generic profile, in order. "
-        f"Decide whether to like or skip, per the instructions. Respond with "
-        f"ONLY the JSON object."
+        profile_user_text(len(images), app)
+        + " Respond with ONLY the JSON object."
     )
 
     payload: dict = {"parts": parts}

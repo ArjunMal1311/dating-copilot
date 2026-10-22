@@ -1,16 +1,14 @@
-"""Burst-capture a Generic profile off the emulator/Waydroid window, then judge it.
+"""Burst-capture a dating-app profile off the emulator/Waydroid window, then judge it.
 
-Generic sets FLAG_SECURE, so Android-side capture (adb screencap, scrcpy) returns
-black. Capturing at the compositor level instead — `spectacle -a` asks KWin
-for the active window's pixels directly, cropped tightly to just that window
-(no desktop/background clutter, unlike a full-monitor grab), regardless of
-whether the client is X11/XWayland (the old QEMU AVD) or native Wayland
-(Waydroid).
+Optional Linux/KWin helper — not the happy path (that's Telegram or MCP
+with screenshots you already have). Some apps set FLAG_SECURE, so
+Android-side capture returns black. Capturing at the compositor instead —
+`spectacle -a` asks KWin for the active window's pixels.
 
-Default (auto) mode: KWin focuses the Waydroid window, then adb scrolls the
-Generic profile one screenful at a time between captures and stops at the
-bottom. adb only ever sends scroll swipes, aimed at the middle of Generic's
-window, clear of the like and skip buttons. It never likes, skips or types.
+Default (auto) mode: KWin focuses the Waydroid window, then adb scrolls
+the focused app one screenful at a time. Pass --app so auto-scroll can
+find the Android package. adb never likes, skips or types. --manual grabs
+whatever window you focus.
 
     .venv/bin/python grab.py              # auto: focus, scroll, capture, judge
     .venv/bin/python grab.py --manual     # old way: you click in and scroll
@@ -44,6 +42,7 @@ from pathlib import Path
 
 from PIL import Image
 
+import apps as app_catalog
 import config
 
 # Frames are "the same screenful" below this Hamming distance on a 16x16
@@ -118,7 +117,6 @@ def _capture(dest: Path) -> bool:
 
 # ---------- auto mode: KWin focus + adb scroll ----------
 
-_GENERIC_PKG = "co.generic.app"
 _KWIN_FOCUS_JS = """
 for (const w of workspace.windowList()) {
     if (w.resourceClass === "Waydroid") { workspace.activeWindow = w; break; }
@@ -129,10 +127,10 @@ for (const w of workspace.windowList()) {
 def _focus_waydroid() -> None:
     """Ask KWin to focus the Waydroid window, so `spectacle -a` grabs it
     without anyone clicking into it."""
-    js = Path(tempfile.mkdtemp(prefix="generic-kwin-")) / "focus.js"
+    js = Path(tempfile.mkdtemp(prefix="dating-kwin-")) / "focus.js"
     js.write_text(_KWIN_FOCUS_JS)
     q = shutil.which("qdbus6") or "qdbus"
-    name = "generic_grab_focus"
+    name = "dating_grab_focus"
     try:
         sid = subprocess.run(
             [q, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.loadScript",
@@ -174,22 +172,25 @@ def _adb(serial: str, *args: str) -> str:
                           text=True, timeout=15).stdout
 
 
-def _generic_frame(serial: str) -> tuple[int, int, int, int]:
-    """Generic's window rect (left, top, right, bottom) in Android coordinates.
+def _app_frame(serial: str, package: str) -> tuple[int, int, int, int]:
+    """The app's window rect (left, top, right, bottom) in Android coordinates.
     Waydroid runs it as a freeform window, so it isn't the whole display."""
     dump = _adb(serial, "dumpsys", "window", "windows")
-    block = dump.split(f"{_GENERIC_PKG}/", 1)
+    block = dump.split(f"{package}/", 1)
     if len(block) < 2:
-        raise SystemExit("Generic isn't open in Waydroid. Open a profile, then retry.")
+        raise SystemExit(
+            f"{package} isn't open in Waydroid. Open a profile, then retry "
+            f"(or use --manual to grab the focused window)."
+        )
     m = re.search(r"frame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]", block[1])
     if not m:
-        raise SystemExit("couldn't find Generic's window bounds via dumpsys.")
+        raise SystemExit("couldn't find the app window bounds via dumpsys.")
     left, top, right, bottom = map(int, m.groups())
     return left, top, right, bottom
 
 
 def _scroll(serial: str, frame: tuple[int, int, int, int]) -> None:
-    """One slow drag up through the middle of Generic's window: about half a
+    """One slow drag up through the middle of the app window: about half a
     screen, so consecutive frames overlap and no prompt gets cut between
     them. Slow on purpose so it doesn't fling. Starts above the skip button
     (bottom-left) and the nav bar, and stays clear of the like hearts on
@@ -202,15 +203,15 @@ def _scroll(serial: str, frame: tuple[int, int, int, int]) -> None:
     _adb(serial, "input", "swipe", str(x), str(y_from), str(x), str(y_to), "600")
 
 
-def auto_burst(out_dir: Path, settle: float) -> list[Path]:
+def auto_burst(out_dir: Path, settle: float, package: str) -> list[Path]:
     """Focus Waydroid, then capture, scroll, capture... until a scroll no
     longer changes the screen (bottom of the profile) or the frame cap."""
     serial = _adb_serial()
-    frame = _generic_frame(serial)
+    frame = _app_frame(serial, package)
     _focus_waydroid()
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    scratch = Path(tempfile.mkdtemp(prefix="generic-grab-"))
+    scratch = Path(tempfile.mkdtemp(prefix="dating-grab-"))
     kept: list[Path] = []
     last_hash: int | None = None
     last_rows: list[bytes] | None = None
@@ -241,7 +242,7 @@ def burst(seconds: float, interval: float, out_dir: Path, lead: float) -> list[P
     out_dir.mkdir(parents=True, exist_ok=True)
     kept: list[Path] = []
     last_hash: int | None = None
-    scratch = Path(tempfile.mkdtemp(prefix="generic-grab-"))
+    scratch = Path(tempfile.mkdtemp(prefix="dating-grab-"))
 
     # -a grabs whatever window has real focus right now — which is this
     # terminal, not the profile. Give you time to click into it first.
@@ -286,13 +287,25 @@ def main() -> None:
                     help="you click in and scroll yourself (no adb)")
     ap.add_argument("--settle", type=float, default=0.9,
                     help="auto mode: seconds to let a scroll finish before capturing")
+    ap.add_argument(
+        "--app",
+        default=config.DEFAULT_APP,
+        help="dating app slug (generic/generic/generic/generic/generic)",
+    )
     args = ap.parse_args()
+    slug = app_catalog.normalize(args.app)
 
     out = args.out or config.BASE_DIR / "shots" / time.strftime("%Y%m%d-%H%M%S")
     if args.manual:
         frames = burst(args.seconds, args.interval, out, args.lead)
     else:
-        frames = auto_burst(out, args.settle)
+        package = app_catalog.PACKAGES.get(slug)
+        if not package:
+            raise SystemExit(
+                f"auto-scroll has no Android package for {slug!r}; "
+                f"use --manual or pick --app generic|generic|generic|generic"
+            )
+        frames = auto_burst(out, args.settle, package)
 
     if not frames:
         print("nothing captured", file=sys.stderr)
@@ -303,12 +316,12 @@ def main() -> None:
         return
 
     import db
-    import generic_mcp
+    import dating_mcp
     from llm.base import LANES
 
     db.init_db()
     print("judging...\n")
-    r = generic_mcp.judge_profile([str(f) for f in frames])
+    r = dating_mcp.judge_profile([str(f) for f in frames], app=slug)
 
     print(f"  {r['decision'].upper()}  (#{r['decision_id']})")
     print(f"  {r['reasoning']}")

@@ -1,8 +1,8 @@
-"""generic-bot entrypoint.
+"""dating-copilot entrypoint.
 
 Long-polling Telegram bot. No public port, no webhook — runs on whatever
 machine you leave on. Send it a profile screenshot, it judges and drafts;
-you act in Generic yourself. See README.md for setup.
+you swipe and send yourself. See README.md for setup.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)  # PTB's HTTP client is cha
 async def start_cmd(update: Update, context) -> None:
     await update.message.reply_text(
         "send a profile screenshot (or album) to judge it.\n"
+        "/app generic|generic|generic|generic|generic — which app the shots are from\n"
         "/about <text> — tell me something new about you\n"
         "/about list — see what I remember\n"
         "/week likes=X matches=Y dates=Z — log this week\n"
@@ -49,7 +50,7 @@ def main() -> None:
     about.register(app, allowed_user_filter)
     week.register(app, allowed_user_filter)
 
-    logging.info("generic-bot starting (backend=%s, user_id=%s)",
+    logging.info("dating-copilot starting (backend=%s, user_id=%s)",
                  config.LLM_BACKEND, config.TELEGRAM_ALLOWED_USER_ID)
     app.run_polling()
 

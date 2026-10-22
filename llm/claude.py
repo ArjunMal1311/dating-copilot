@@ -1,6 +1,6 @@
 """Claude backend — swap-in alternative to Gemini.
 
-Same request shape as generic-auto's judge.py: vision + forced tool call,
+Same request shape as the Gemini backend: vision + forced tool call,
 cached system prompt. Requires `pip install -r requirements-claude.txt`
 and ANTHROPIC_API_KEY, LLM_BACKEND=claude in .env.
 """
@@ -12,11 +12,11 @@ import base64
 import anthropic
 
 import config
-from llm.base import DECISION_SCHEMA, Decision
+from llm.base import DECISION_SCHEMA, Decision, profile_user_text
 
 DECIDE_TOOL = {
     "name": "submit_decision",
-    "description": "Submit a like/skip decision for this Generic profile.",
+    "description": "Submit a like/skip decision for this dating-app profile.",
     "input_schema": DECISION_SCHEMA,
 }
 
@@ -32,16 +32,13 @@ def _image_block(png_bytes: bytes) -> dict:
     }
 
 
-def judge(images: list[bytes], system_prompt: str) -> Decision:
+def judge(images: list[bytes], system_prompt: str, app: str = "generic") -> Decision:
     client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
     content = [_image_block(img) for img in images]
     content.append({
         "type": "text",
-        "text": (
-            f"Above are {len(images)} screenshots of one Generic profile, in "
-            f"order. Decide whether to like or skip, per the instructions."
-        ),
+        "text": profile_user_text(len(images), app),
     })
 
     response = client.messages.create(

@@ -17,7 +17,10 @@ import config
 import db
 
 SYSTEM_PROMPT_TEMPLATE = """You are helping {name} decide whether to like a \
-Generic profile, and if so, what to say.
+{app_display} profile, and if so, what to say.
+
+# This app
+{app_profile}
 
 # Who {name} is
 {seed_context}
@@ -25,24 +28,27 @@ Generic profile, and if so, what to say.
 {voice_section}
 # Your job
 
-You will see screenshots of one Generic profile — her photos and prompt \
-answers, in the order they appear top to bottom. Decide LIKE or SKIP \
-against {name}'s stated preferences above. When genuinely ambiguous, lean \
-SKIP.
+You will see screenshots of one {app_display} profile, in the order they \
+appear top to bottom. Decide LIKE or SKIP against {name}'s stated \
+preferences above. When genuinely ambiguous, lean SKIP.
 
 If LIKE:
-- Pick exactly ONE of her prompts to respond to in `target_prompt` — the \
-one that gives the most specific, non-generic hook. A stranger should be \
-able to write a real question off it; if none of her prompts clear that \
-bar, use a specific photo detail instead and say so in target_prompt.
+- Pick exactly ONE hook in `target_prompt` (the field name is historical; \
+it is the target / hook — a prompt, bio line, question, or photo detail, \
+per # This app). A stranger should be able to write a real question off \
+it. If nothing she wrote clears that bar, use a specific photo detail \
+instead and say so in target_prompt.
 - Write `draft_message` per the rules below.
-- A prompt label is never a hook by itself. Every draft based on a prompt \
-must react to a concrete fact, opinion, joke, or wording from her answer — \
-not merely its label. If the answer is unreadable or does not supply one, \
-leave `draft_message` empty or use a specific photo detail instead.
+- A prompt label or field name is never a hook by itself. Every draft \
+must react to a concrete fact, opinion, joke, or wording from her answer \
+or bio — not merely its label. If the text is unreadable or does not \
+supply one, leave `draft_message` empty or use a specific photo detail \
+instead.
 - If nothing on the profile is specific enough to write a real opener \
 from, still decide LIKE but leave `draft_message` empty and say why in \
-`reasoning`. A like with no draft is fine — {name} will write his own.
+`reasoning`. A like with no draft is fine — {name} will write his own. \
+On apps where she cannot see a comment with the like, an empty draft \
+is often the right call.
 
 If SKIP: `target_prompt` and `draft_message` are both empty strings, \
 `draft_lane` is "" and `alternatives` is [].
@@ -65,25 +71,24 @@ Never pad with a weak one, and never return a reworded copy of another draft.
 
 # The main draft is plain by default
 
-His most natural sent openers are one plain, curious question about one \
-specific thing, often starting "okay but" or using "actually", with no \
-punchline. The shape of "okay but how do you casually end up with seven \
-dogs" or "did it actually work or are you still looking". A person texting \
-asks; a writer constructs a line.
+A person texting asks; a writer constructs a line. Prefer one plain, \
+curious question about one specific thing, with no punchline, unless a \
+cleverer angle is clearly stronger.
 - So the main draft is a [question] (or [sincere]) in that shape unless a \
 cleverer angle is clearly stronger for this profile. Clever angles \
 ([guess], [take_side], [scenario], [dry_riff]) go in the backups.
 - One clause is the target. If a draft has a setup and a twist, a \
-punchline ending, or a word he wouldn't use (reckon, these days, quite, \
-indeed), cut it back to the plain question underneath.
-- Read it as a text from a 23-year-old in Bengaluru. If it sounds like a \
+punchline ending, or a word he wouldn't use (see voice below), cut it \
+back to the plain question underneath.
+- Read it as a text they would actually send. If it sounds like a \
 caption, a tweet or a line from a dating coach, it fails.
 
 # How draft_message must read
 
-This is the comment {name} attaches when he likes her prompt. It is the \
-only thing she sees before deciding whether to match. It has one job: give \
-her something easy and specific to answer.
+This is the first message {name} would send about this profile. Follow \
+# This app for whether that is a like-comment, a post-match opener, or \
+something else. It has one job: give her something easy and specific to \
+answer.
 
 Shape: one concrete detail from her profile, {name}'s actual reaction to \
 it, then something she can reply to. Usually one sentence, never more than \
@@ -226,22 +231,10 @@ more of her (a "next time," inviting yourself in) is one way to pass this \
 test, not the only way — an honestly specific, unguarded reaction passes \
 it too.
 
-Write it the way a 23-year-old actually types on his phone:
-- all lowercase, including "i"
-- no full stop at the end of a one-liner; the question mark is optional \
-even on an obvious question
-- drop the leading subject pronoun and small function words — "just saw \
-the climbing thing", not "i just saw that you're into climbing"
-- a fragment can be the whole message, no verb required
-- start mid-thought, as if continuing a conversation that already existed
-- stop at the last useful word; don't land a closer
-- imperfect contractions are normal — dont, im, youre, thats
-- at most one stance word (honestly, tbh, ngl, ok but, wait, actually, \
-lowkey). One, not a sprinkle.
-- make it lopsided on purpose: one longer clause and one short one, never \
-two mirrored halves
-- humour lands by understatement or one absurd specific detail, delivered \
-flat and unlabelled
+Match how {name} actually types from Who they are / Your voice and the \
+sent-message examples. If those sections describe lowercase fragments, \
+write that way; if they don't, write plainly. Do not invent a \
+demographic voice (age, city, slang) that isn't in the context.
 
 What gives machine-written text away is polish, not errors. A draft with \
 nothing wrong with it is the problem. Never do any of these:
@@ -398,8 +391,7 @@ _BANNED_WORDS = [
     "indeed", "rather", "quite", "delightful", "intriguing", "fascinating",
     "wonderful", "objectively", "literally", "genuinely", "essentially",
     "fundamentally", "inherently",
-    # not his register: writerly or not how he talks
-    "reckon", "these days", "a small prayer",
+    "reckon", "these days",
 ]
 _SERVICE_VOICE = [
     "great question", "happy to", "feel free to", "i'd love to",
@@ -538,12 +530,17 @@ def drop_failing_alternatives(alternatives: list[dict]) -> list[dict]:
     return [a for a in alternatives if not check_draft(a["message"])]
 
 
-def build_system_prompt() -> str:
+def build_system_prompt(app: str | None = None) -> str:
+    import apps as app_catalog
+
+    slug = app_catalog.normalize(app)
     seed = _read_seed_context()
     notes = _notes_section().format(name=config.USER_NAME)
     voice = _voice_section().format(name=config.USER_NAME)
     return SYSTEM_PROMPT_TEMPLATE.format(
         name=config.USER_NAME,
+        app_display=app_catalog.display_name(slug),
+        app_profile=app_catalog.load_profile(slug),
         seed_context=seed,
         notes_section=notes,
         voice_section=voice,

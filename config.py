@@ -1,4 +1,4 @@
-"""Configuration for the generic-bot Telegram assistant.
+"""Configuration for the dating-copilot Telegram assistant.
 
 All values come from .env (see .env.example). Nothing here is guessed or
 defaulted silently for the things that matter — a missing token or key
@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).parent
 
 # Load this project's .env explicitly, not whatever happens to be in the
-# process's cwd — generic_mcp.py is spawned by an MCP client from its own
+# process's cwd — dating_mcp.py is spawned by an MCP client from its own
 # directory, not this one.
 load_dotenv(BASE_DIR / ".env")
 
@@ -34,7 +34,7 @@ def _require(name: str) -> str:
 
 
 # ---------- Telegram ----------
-# Not required at import: generic_mcp.py (MCP-client integration) reuses this
+# Not required at import: dating_mcp.py (MCP-client integration) reuses this
 # module for the Gemini key, DB path and identity config but never touches
 # Telegram. bot.py calls require_telegram() at startup to fail loudly.
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
@@ -50,7 +50,7 @@ except ValueError:
 def require_telegram() -> None:
     """Fail loudly if the Telegram vars needed by bot.py are missing.
 
-    Called from bot.main(), not at import — so generic_mcp.py can import this
+    Called from bot.main(), not at import — so dating_mcp.py can import this
     module without a bot token.
     """
     if not TELEGRAM_BOT_TOKEN:
@@ -64,7 +64,7 @@ def require_telegram() -> None:
 # gemini  — call the Gemini SDK directly with a single local GEMINI_API_KEY.
 # claude  — call the Anthropic SDK directly with ANTHROPIC_API_KEY.
 # gateway — POST to a running ai-gateway over HTTP; the gateway owns the key
-#           pool, rate limiting and backoff, so generic-bot holds no provider key
+#           pool, rate limiting and backoff, so dating-copilot holds no provider key
 #           at all. See llm/gateway.py.
 LLM_BACKEND = os.environ.get("LLM_BACKEND", "gemini").strip().lower()
 if LLM_BACKEND not in ("gemini", "claude", "gateway"):
@@ -112,8 +112,18 @@ VOICE_SAMPLE_COUNT = int(os.environ.get("VOICE_SAMPLE_COUNT", "12"))
 # a very long history doesn't silently balloon every request.
 CONTEXT_NOTE_LIMIT = int(os.environ.get("CONTEXT_NOTE_LIMIT", "40"))
 
+# Which dating app the next judge call is for (generic/generic/generic/generic/generic).
+DEFAULT_APP = os.environ.get("DEFAULT_APP", "generic").strip().lower() or "generic"
+
 # ---------- Storage ----------
-DB_PATH = BASE_DIR / "generic.db"
+# Prefer dating.db; fall back to a leftover generic.db from older checkouts.
+_db_env = os.environ.get("DB_PATH", "").strip()
+if _db_env:
+    DB_PATH = Path(_db_env)
+else:
+    _dating = BASE_DIR / "dating.db"
+    _legacy = BASE_DIR / "generic.db"
+    DB_PATH = _dating if _dating.exists() or not _legacy.exists() else _legacy
 
 # ---------- Images ----------
 MAX_EDGE = 1092       # long-edge downscale before sending to the judge
