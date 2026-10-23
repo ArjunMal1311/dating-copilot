@@ -181,10 +181,15 @@ def _adb(serial: str, *args: str) -> str:
 
 def _focused_frame(serial: str) -> tuple[int, int, int, int]:
     """Foreground window rect (left, top, right, bottom) in Android coords."""
+    # Some Android builds leave the focus lines out of `dumpsys window windows`,
+    # so read focus from the full dump and bounds from the per-window dump.
+    focus = _adb(serial, "dumpsys", "window")
     dump = _adb(serial, "dumpsys", "window", "windows")
-    pkg = re.search(r"mCurrentFocus=Window\{[^ ]+ [^ ]+ ([^/]+)/", dump)
+    pkg = re.search(r"mCurrentFocus=Window\{[^ ]+ [^ ]+ ([^/]+)/", focus)
     if pkg is None:
-        pkg = re.search(r"mFocusedApp=AppWindowToken\{[^}]* ([^\s/]+)/", dump)
+        pkg = re.search(
+            r"mFocusedApp=(?:AppWindowToken|ActivityRecord)\{[^}]* ([^\s/]+)/", focus
+        )
     if pkg is None:
         raise SystemExit(
             "couldn't find the focused window. Open a profile, then retry "

@@ -99,10 +99,20 @@ For Claude, install the extra and set the matching values:
 
 ## Agent skill
 
-The repository includes a `/judge` skill in
-[`.claude/skills/judge/SKILL.md`](.claude/skills/judge/SKILL.md). Give it
-screenshot paths with `/judge <path> ...`, or invoke `/judge` when a Waydroid
-profile is already visible. The skill runs the local CLI directly.
+Project guidance lives in [`AGENTS.md`](AGENTS.md), with a small
+[`CLAUDE.md`](CLAUDE.md) entry point for Claude Code. The repository includes
+these user workflows under [`.claude/skills/`](.claude/skills/):
+
+- `/context-setup` — create or update the user's private `context.md`.
+- `/profile-review` — review the user's own profile and suggest truthful
+  improvements.
+- `/judge` — review another person's profile and draft an opener.
+- `/reply` — analyze a conversation and draft a reply.
+
+For `/judge`, provide screenshot paths with `/judge <path> ...`, or invoke it
+when a Waydroid profile is already visible. The skill runs the local CLI
+directly. `/profile-review` works from screenshots taken on any device or from
+pasted profile text; it does not require Waydroid.
 
 ## Optional MCP interface
 
