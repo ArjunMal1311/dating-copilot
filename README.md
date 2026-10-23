@@ -7,6 +7,8 @@ It reads screenshots, returns a recommendation and draft options, and keeps
 your decision history locally. It does not log into accounts, swipe, like, or
 send messages.
 
+https://github.com/user-attachments/assets/b176c293-f25d-4199-b188-d9f105880f34
+
 ## What you get
 
 - A like/skip recommendation with concise reasoning.
